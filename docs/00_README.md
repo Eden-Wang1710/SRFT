@@ -14,7 +14,7 @@ Migrated from the old server (DSAI, `/scratch/cxiao13/zixuan/SRFT`) to skipjack 
 | [06_eval_agentdojo.md](06_eval_agentdojo.md) | Verified commands: stats for a run dir, launching the benchmark |
 | [08_environment.md](08_environment.md) | conda env `agentdojo`, versions |
 | [09_cluster_skipjack.md](09_cluster_skipjack.md) | Skipjack (JHU) docs links, hardware/partitions, ssh config, queue gotchas |
-| [09_cluster_washu.md](09_cluster_washu.md) | WashU cluster counterpart (stub until filled in on that machine) |
+| [09_cluster_washu.md](09_cluster_washu.md) | WashU RIS Compute2: account, partitions, storage, how to submit, queue reality, verified commands |
 | [10_sync_workflow.md](10_sync_workflow.md) | Two-cluster workflow: `env/` layer, `env/sb` job submission, git branch rules, HF data/ckpt exchange, new-machine setup |
 | [03_analysis_utility_drop.md](03_analysis_utility_drop.md) | Why SR-Agent loses utility (data + inference evidence) and review of the ICLR self-rewrite plan |
 | [04_self_distill_plan.md](04_self_distill_plan.md) | Concrete self-distillation recipe: per-step prompts, hint ladder, filters, training config |
@@ -23,5 +23,5 @@ Migrated from the old server (DSAI, `/scratch/cxiao13/zixuan/SRFT`) to skipjack 
 
 Machine layer: `SRFT/env/` (`local.sh` marker → `skipjack.sh`/`washu.sh`, `sb` submitter, `freeze/`). Code outside docs: `SRFT/data_recovery/` (README + script to fill the missing mid-turn replies from DSAI per-step records).
 
-Root on skipjack: `/weka/scratch/jhu/cxiao13/zwang544/SRFT/` (also `~/scratch_cxiao13/zwang544/SRFT`); on WashU: see `09_cluster_washu.md`.
+Root on skipjack: `/weka/scratch/jhu/cxiao13/zwang544/SRFT/` (also `~/scratch_cxiao13/zwang544/SRFT`); on WashU: `/storage3/fs1/zhang.ning/Active/hao/zixuan/SRFT` (`09_cluster_washu.md`).
 Git: private GitHub repo `SRFT`, branch `main` (since 2026-09-09; the pre-NeurIPS repo was renamed `SRFT-nips-archive`).
