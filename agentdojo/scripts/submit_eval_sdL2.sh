@@ -1,0 +1,34 @@
+#!/bin/bash
+# Submit the AgentDojo eval for one LoRA as 10 single-GPU jobs + 1 stats job (cluster-neutral: account/partitions from env/<cluster>.sh).
+# usage: bash scripts/submit_eval_sdL2.sh <RUN_NAME> <abs LoRA dir>        (run from SRFT/agentdojo; any cwd works)
+# Override: PARTS=<partitions> NPROC=<procs/GPU> WS_NPROC=<procs/GPU for workspace> SRFT_SBATCH_FLAGS="--test-only"
+# NOTE: sbatch --export splits on commas -> injection lists use "+" (eval_parallel.py splits on [,+:]).
+# Split chosen from measured per-trajectory times (workspace 560 traj ≈ 58 s, travel 140 ≈ 154 s): each job ≤ ~2.5 h with -t 4h.
+set -uo pipefail
+SRFT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$SRFT_ROOT/env/select.sh"
+cd "$SRFT_ROOT/agentdojo"
+RUN_NAME=${1:?}; LORA=${2:?}; LOGDIR=runs/$RUN_NAME
+PARTS=${PARTS:-$GPU_PARTITIONS}; NPROC=${NPROC:-2}   # 2 procs/GPU ≈ 35 GB -> fits L40S (46 GB); 3 procs only gave 1.15x anyway
+S=$SRFT_ROOT/agentdojo/scripts/eval_sdL2.sbatch
+FLAGS="${SRFT_SBATCH_FLAGS:-}"
+# workspace shards run 1 proc/GPU: with 2 procs a long (looping, 15-turn) workspace trajectory OOMs a 46 GB L40S (seen 2026-09-08)
+sub(){ np=$NPROC; case "$1" in ws*) np=${WS_NPROC:-1};; esac
+  srft_sbatch --parsable $FLAGS -A "$SLURM_ACCOUNT" $SBATCH_EXTRA -p "$PARTS" -t 04:00:00 -J "eval_${RUN_NAME}_$1" -o "$SRFT_SLURM_LOGS/%x_%j.out" \
+    --export=ALL,RUN_LOGDIR=$LOGDIR,LORA_PATH=$LORA,NPROC=$np,"$2" "$S" 2>&1 | grep -v BILLING; }
+ids=""
+ids="$ids:$(sub ws1 "SUITE=workspace,ATTACK=important_instructions,INJ=injection_task_0+injection_task_1+injection_task_2+injection_task_3")"
+ids="$ids:$(sub ws2 "SUITE=workspace,ATTACK=important_instructions,INJ=injection_task_4+injection_task_5+injection_task_6")"
+ids="$ids:$(sub ws3 "SUITE=workspace,ATTACK=important_instructions,INJ=injection_task_7+injection_task_8+injection_task_9+injection_task_10")"
+ids="$ids:$(sub ws4 "SUITE=workspace,ATTACK=important_instructions,INJ=injection_task_11+injection_task_12+injection_task_13")"
+ids="$ids:$(sub tr1 "SUITE=travel,ATTACK=important_instructions,INJ=injection_task_0+injection_task_1+injection_task_2")"
+ids="$ids:$(sub tr2 "SUITE=travel,ATTACK=important_instructions,INJ=injection_task_3+injection_task_4")"
+ids="$ids:$(sub tr3 "SUITE=travel,ATTACK=important_instructions,INJ=injection_task_5+injection_task_6")"
+ids="$ids:$(sub slack "SUITE=slack,ATTACK=important_instructions")"
+ids="$ids:$(sub bank "SUITE=banking,ATTACK=important_instructions")"
+ids="$ids:$(sub benign "ATTACK=none")"
+echo "submitted jobs${ids}"
+st=$(srft_sbatch --parsable $FLAGS -A "$SLURM_ACCOUNT" $SBATCH_EXTRA -p "$CPU_PARTITIONS" -c 2 --mem=8G -t 00:20:00 -J "stats_${RUN_NAME}" --dependency=afterany${ids} \
+  -o "$SRFT_SLURM_LOGS/%x_%j.out" \
+  --wrap="source $CONDA_SH && conda activate agentdojo && cd $SRFT_ROOT/agentdojo && python eval/compute_attack_stats.py ${RUN_NAME}/Qwen_Qwen3-8B-safe-agent" 2>&1 | grep -v BILLING)
+echo "stats job $st"

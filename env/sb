@@ -1,0 +1,15 @@
+#!/bin/bash
+# Cluster-neutral job submission. Usage:
+#   bash env/sb gpu [extra sbatch flags] <script.sbatch> [script args]
+#   bash env/sb cpu [extra sbatch flags] <script.sbatch> [script args]
+# Adds the current cluster's account, partitions, required extra flags and a log path under SRFT/slurm_logs/;
+# flags you pass after gpu|cpu override them (e.g. -p l40s, -t 10:00:00, --gres=gpu:1, --export=ALL,FOO=bar).
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/select.sh"
+kind=${1:?usage: env/sb gpu|cpu [sbatch flags] script.sbatch}; shift
+case "$kind" in
+  gpu) parts=$GPU_PARTITIONS ;;
+  cpu) parts=$CPU_PARTITIONS ;;
+  *) echo "env/sb: first argument must be gpu or cpu (got '$kind')" >&2; exit 2 ;;
+esac
+srft_sbatch -A "$SLURM_ACCOUNT" -p "$parts" $SBATCH_EXTRA -o "$SRFT_SLURM_LOGS/%x_%j.out" "$@"
