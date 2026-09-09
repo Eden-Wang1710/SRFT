@@ -51,7 +51,9 @@ Site: https://washu.atlassian.net/wiki/spaces/RUD/overview (RIS User Documentati
 | `/tmp` on any node | node-local — never put `#SBATCH -o`, scripts or data there (a `--wrap` job cannot see a script written to the login node's `/tmp`; cost one failed job 3003002) | |
 - `HF_HOME` for SRFT is **`zixuan/.cache/huggingface`** (`env/washu.sh`), NOT 学长's `~/storage/.cache/huggingface`: that one holds 学长's HF token
   (`hf auth whoami` → another account) and `hf auth login` would overwrite it. Qwen/Qwen3-8B is downloaded once more into ours (16 GB).
-  `~/.bashrc` sets the 学长 path, so in an interactive shell always `source env/select.sh` before any `hf` command.
+  `~/.bashrc` sets the 学长 path, so in an interactive shell always `source env/select.sh` before any `hf` command, and because `env/washu.sh`
+  exports `HF_HUB_OFFLINE=1`, prefix anything that talks to the Hub with `HF_HUB_OFFLINE=0`:
+  `source env/select.sh && conda activate llamafactory && HF_HUB_OFFLINE=0 hf auth login` (git-credential prompt → n; verified 2026-09-09).
 - **`~/.bashrc` also exports `TRANSFORMERS_CACHE=~/storage/.cache/huggingface/transformers`, and sbatch passes the login environment to the job**
   (`--export=ALL` default). transformers 4.51 lets `TRANSFORMERS_CACHE` override `HF_HOME/hub`, so the first eval smoke (3003058) silently loaded
   Qwen3-8B from 学长's cache instead of ours. `env/washu.sh` now `unset TRANSFORMERS_CACHE`; keep it that way (do not re-export it).
