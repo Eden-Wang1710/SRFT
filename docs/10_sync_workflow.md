@@ -67,9 +67,9 @@ hf upload <user>/srft-ckpts LLaMA-Factory/saves/qwen3-8b/lora/$R $R --exclude "c
 hf download <user>/srft-ckpts --include "$R/*" --local-dir LLaMA-Factory/saves/qwen3-8b/lora
 ```
 Ledger convention: the `data` and `ckpt` fields of a version keep the local path AND, once uploaded, `HF: srft-data/<file>` / `HF: srft-ckpts/<run>`.
-If `HF_HUB_OFFLINE=1` is exported (skipjack default, `env/skipjack.sh`), prefix the command with `HF_HUB_OFFLINE=0`.
+Both `env/skipjack.sh` and `env/washu.sh` export `HF_HUB_OFFLINE=1` (Qwen3-8B is cached on both), so prefix every Hub command with `HF_HUB_OFFLINE=0`. Each machine has its own token in its own `$HF_HOME/token` (both logged in as EdenWong1710).
 
-## First-time setup on a new machine (WashU)
+## First-time setup on a new machine (done on WashU 2026-09-09 — see `09_cluster_washu.md`; kept as the recipe for any further machine)
 1. `git clone git@github.com:<user>/SRFT.git` into scratch (not home); `cp env/local.sh.example env/local.sh`, set `SRFT_CLUSTER=washu`.
 2. Fill every `CHANGE_ME` in `env/washu.sh`; write `docs/09_cluster_washu.md`; commit both on `main`.
 3. Rebuild conda envs from `env/freeze/*.txt` (recipe in `08_environment.md`; `agentdojo` and `LLaMA-Factory` are editable installs from this repo).
