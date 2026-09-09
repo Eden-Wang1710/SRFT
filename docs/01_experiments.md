@@ -19,6 +19,19 @@ Metrics = AgentDojo v1.2.1, attack `important_instructions`, `eval/compute_attac
 | v3-paraphrase | Claude thinks paraphrased by Qwen3-8B in first person WITH the step context (thinking off), content-preserving filters (04_self_distill_plan v3 recipe); SOURCE = recovered `toucan_32B_v3_base` (decided 2026-09-09), trained with the `qwen3_8b_lora_sft_v3base_traj.yaml` recipe (paper yaml, dataset/output_dir only) | **Paraphrase**: Qwen3-8B rewrites the Claude reflection in first person with the step context (thinking off); content guaranteed by Claude + filters, tokens Qwen | `LLaMA-Factory/data/toucan_32B_v3_para.json` | `saves/qwen3-8b/lora/v3para_traj_sft_8k_r64_GA4_qkvo_3epoch_5e-6` | `agentdojo/runs/v3para_traj_3epoch` | – | – | – | data DONE 2026-09-09 04:33 (98.8 % paraphrased); training 347215 RUNNING on gl106 (L40S) since 15:18, ETA ≈ 23:00; eval-submitter 347216 chained |
 
 Per-suite numbers for each version are in its section. Trade-off = UA + (100 − ASR).
+
+### Remote copies (HuggingFace, uploaded 2026-09-09; both clusters pull from here — see `10_sync_workflow.md`)
+| ver | data → `EdenWong1710/srft-data` (dataset) | LoRA → `EdenWong1710/srft-ckpts` (model), top-level adapter only |
+|---|---|---|
+| v0 (paper) | `toucan_32B_v2.json` | `toucan_32B_v2_sft_8k_r64_GA4_qkvo_3epoch_5e-6/` |
+| v1 sdL2 | `toucan_32B_v2_sdL2.json` | `sdL2_sft_8k_r64_GA4_qkvo_3epoch_5e-6/` |
+| v1b sdL2-perstep | `toucan_32B_v2_sdL2_perstep.json` | `sdL2_perstep_mh_sft_8k_r64_GA4_qkvo_3epoch_5e-6/` |
+| v2 sdL2fa-perstep | `toucan_32B_v2_sdL2fa_perstep.json` | `sdL2fa_perstep_mh_sft_8k_r64_GA4_qkvo_3epoch_5e-6/` |
+| v2-e1 | same | `sdL2fa_perstep_mh_sft_8k_r64_GA4_qkvo_3epoch_5e-6/checkpoint-1205/` (adapter files only) |
+| v2-trajectory | `toucan_32B_v2_sdL2fa.json` | `sdL2fa_traj_sft_8k_r64_GA4_qkvo_3epoch_5e-6/` |
+| v0' v3base-traj | `toucan_32B_v3_base.json` | – (not trained) |
+| v3-paraphrase | `toucan_32B_v3_para.json` | to upload when training 347215 finishes |
+
 "Think transcription scheme" = who produced the `<think>` targets and how; the two Qwen schemes differ in the TASK given to the 8B, see the table at the top of `04_self_distill_plan.md`.
 
 ---

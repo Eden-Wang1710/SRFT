@@ -14,6 +14,7 @@ Root: `/weka/scratch/jhu/cxiao13/zwang544/SRFT/` (all paths below are relative t
 | `rl-injector-agentdojo/`, `AgentDyn/` | not migrated (ignore) | results not in paper |
 
 ## Training data
+Remote copies of every `toucan_*.json` below: HF dataset `EdenWong1710/srft-data` (same file names); LoRAs: HF model `EdenWong1710/srft-ckpts/<run>/`. Table per version in `01_experiments.md` §Remote copies.
 - **Paper data:** `LLaMA-Factory/data/toucan_32B_v2.json` — 3707 ShareGPT-style samples (`conversations`/`system`/`meta`),
   74 MB, registered as dataset `toucan_32B_v2` in `LLaMA-Factory/data/dataset_info.json`.
   Assistant turns contain `<think>…</think>` self-reflection followed by `<tool_call>`.
