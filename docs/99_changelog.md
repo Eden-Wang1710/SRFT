@@ -110,3 +110,4 @@
 - 2026-09-10 10:40 User: re-measure base Qwen3-8B under think budget 1024, both without and with the system-prompt append (v0 not re-run). Submitted base_think1024_noappend (362703–362713) and base_think1024_append (362714–362724), all suites, TLIM 6 h; all 20 GPU jobs started within a minute. LoRA fallback path used (non-existent LORA_PATH → base model).
 - 2026-09-10 11:10 v3 no-append FINAL (949): 52.58 / 49.74 / 7.59. Standard and think-1024 workspace resumes still running.
 - 2026-09-10 12:30 v3 standard FINAL (949): 46.39 / 45.63 / 2.00. think-1024 workspace resume still running (1 job).
+- 2026-09-10 13:00 v3 think-1024 FINAL (949): 62.89 / 48.05 / 2.11 (the 46 late workspace traj scored lower: workspace UA 56.0 → 53.8). All three v3 runs final; base-1024 runs at ~50 %.
