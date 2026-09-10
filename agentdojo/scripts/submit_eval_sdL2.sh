@@ -18,7 +18,7 @@ FLAGS="${SRFT_SBATCH_FLAGS:-}"
 # MaxMemPerCPU=6000 (skipjack): CPUs = ceil(mem/6 GB). Busy GPU nodes often have free GPUs but only 5-8 free CPUs, so request only
 # what the procs need: 1 proc -> 30 GB / 5 CPUs, 2 procs -> 42 GB / 7 CPUs (2026-09-10; the 64 GB default sat 1 h unscheduled).
 sub(){ np=$NPROC; case "$1" in ws*) np=${WS_NPROC:-1};; esac; res="-c 5 --mem=30G"; [ "$np" -ge 2 ] && res="-c 7 --mem=42G"
-  srft_sbatch --parsable $FLAGS $res -A "$SLURM_ACCOUNT" $SBATCH_EXTRA -p "$PARTS" -t 04:00:00 -J "eval_${RUN_NAME}_$1" -o "$SRFT_SLURM_LOGS/%x_%j.out" \
+  srft_sbatch --parsable $FLAGS $res -A "$SLURM_ACCOUNT" $SBATCH_EXTRA -p "$PARTS" -t "${TLIM:-04:00:00}" -J "eval_${RUN_NAME}_$1" -o "$SRFT_SLURM_LOGS/%x_%j.out" \
     --export=ALL,RUN_LOGDIR=$LOGDIR,LORA_PATH=$LORA,NPROC=$np,SYS_APPEND=$SYS_APPEND,THINK_BUDGET=$THINK_BUDGET,SUITES=${ONLY// /+},"$2" "$S" 2>&1 | grep -v BILLING; }
 want(){ case " $ONLY " in *" $1 "*) return 0;; *) return 1;; esac; }
 ids=""
