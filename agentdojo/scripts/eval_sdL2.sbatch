@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --gres=gpu:1
-#SBATCH -c 8
-#SBATCH --mem=64G
+#SBATCH -c 5
+#SBATCH --mem=30G
 #SBATCH -t 03:00:00
 #SBATCH -J eval_sdL2
 # Normally submitted by scripts/submit_eval_sdL2.sh (which adds account/partition/log path from env/<cluster>.sh).

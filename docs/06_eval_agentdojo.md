@@ -106,3 +106,8 @@ that attacked and benign results now load. From now on resubmitting a shard trul
 Same checkpoint, same 433 workspace trajectories, two independent samples at temperature 0.6: UA 52.0 % vs 43.2 %. Trajectories are
 clustered by user task (40 per suite), so the effective sample is small. **Single-run differences of ≤ 3–4 points overall (or ≤ 10 points
 on one suite) are not evidence.** For any claim in the paper, evaluate ≥ 3 seeds (or fix the seed and temperature) and report the spread.
+
+## Resource requests (2026-09-10)
+`MaxMemPerCPU=6000` turns `--mem=64G` into an 11-CPU request, which does not fit the 5–8 free CPUs typically left on busy GPU nodes even when
+GPUs are free. `eval_sdL2.sbatch` now defaults to `-c 5 --mem=30G`; `submit_eval_sdL2.sh` passes `-c 7 --mem=42G` for 2-proc jobs. For
+already-pending jobs: `scontrol update JobId=<id> MinMemoryNode=30000 CPUsPerTask=5 MinCPUsNode=5`.

@@ -44,7 +44,7 @@ further multi-turn run, including the distilled v3 datasets: copy, change `datas
 | v1b | toucan_32B_v2_sdL2_perstep | per-step, mask_history=true, LF_NO_HISTORY_EMPTY_COT=1; 2×H100 GA 8 | 315868 | DONE 2026-09-06 11:34: 4,128 steps, 4 h 12, train_loss 0.641 |
 | v2 | toucan_32B_v2_sdL2fa_perstep | as v1b, expert answers restored, 19,271 samples | 318170 | submitted 2026-09-06 |
 | v0' | toucan_32B_v3_base | `qwen3_8b_lora_sft_v3base_traj.yaml` = paper yaml, dataset/output_dir only; 2 GPUs GA 8 | – | cancelled by user 2026-09-09 (config kept as template) |
-| v3-para | toucan_32B_v3_para | `qwen3_8b_lora_sft_v3para_traj.yaml` = template, dataset/output_dir only; **1 GPU, NPROC_PER_NODE=1, GA 16**, 10 h | 347215 | 2-GPU job 342999 waited 8 h unscheduled → 1 GPU; mem 30 GB (=5 CPUs) to fit busy l40s nodes; eval-submitter 347216 chained |
+| v3-para | toucan_32B_v3_para | `qwen3_8b_lora_sft_v3para_traj.yaml` = template, dataset/output_dir only; **1 GPU, NPROC_PER_NODE=1, GA 16**, 10 h | 347215 | DONE 2026-09-09 23:00: 1×L40S (gl106), 696 steps, 7 h 41, train_loss 0.888 (≈ 2.1× the 2×L40S time of v2-traj, as expected) |
 
 Scheduling lesson (2026-09-09): 1-GPU jobs on `l40s` started within seconds all night while the 2-GPU training request sat 8 h with reason None. For ≤ 8k-token LoRA runs prefer 1 GPU + GA 16 (fits a 46 GB L40S with gradient checkpointing; v2-traj's per-GPU footprint at 8k proved it).
 | sdL2 v1 | toucan_32B_v2_sdL2 | dataset + output_dir only (mask_history=false); 2×H200, GA 8 (eff. batch 16), 696 steps | 313882 | DONE 2026-09-05 14:38: 84 min, train_loss 0.804 (paper 0.978); ckpts 232/464/696 = epoch 1/2/3 |
