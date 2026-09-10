@@ -14,14 +14,14 @@ source "$CONDA_SH" && conda activate agentdojo
 cd "$SRFT_ROOT/agentdojo"
 export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}" TOKENIZERS_PARALLELISM=false PYTHONUNBUFFERED=1
 export CUDA_VISIBLE_DEVICES=0
-export QWEN_SAFE_AGENT_LORA_PATH="${LORA_PATH:?}" QWEN_SAFE_AGENT_SYS_APPEND=1 QWEN_SAFE_AGENT_ENABLE_THINKING=1
+export QWEN_SAFE_AGENT_LORA_PATH="${LORA_PATH:?}" QWEN_SAFE_AGENT_SYS_APPEND="${SYS_APPEND:-1}" QWEN_SAFE_AGENT_ENABLE_THINKING=1 QWEN_SAFE_AGENT_THINK_BUDGET="${THINK_BUDGET:-512}"
 NPROC="${NPROC:-3}"; ATTACK="${ATTACK:-important_instructions}"
 echo "cluster=$SRFT_CLUSTER node=$(hostname) gpu=$(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader) start=$(date)"
-echo "LORA=$QWEN_SAFE_AGENT_LORA_PATH SYS_APPEND=$QWEN_SAFE_AGENT_SYS_APPEND THINK=$QWEN_SAFE_AGENT_ENABLE_THINKING RUN_LOGDIR=$RUN_LOGDIR ATTACK=$ATTACK NPROC=$NPROC"
+echo "LORA=$QWEN_SAFE_AGENT_LORA_PATH SYS_APPEND=$QWEN_SAFE_AGENT_SYS_APPEND THINK=$QWEN_SAFE_AGENT_ENABLE_THINKING THINK_BUDGET=$QWEN_SAFE_AGENT_THINK_BUDGET RUN_LOGDIR=$RUN_LOGDIR ATTACK=$ATTACK NPROC=$NPROC"
 mkdir -p "$RUN_LOGDIR"
 if [ "$ATTACK" = "none" ]; then
-  for s in ${SUITES:-travel slack banking workspace}; do
-    python scripts/eval_parallel.py --suite "$s" --nproc "$NPROC" --logdir "$RUN_LOGDIR"
+  for s in ${SUITES:-travel slack banking workspace}; do s=${s//+/ }; for s in $s; do
+    python scripts/eval_parallel.py --suite "$s" --nproc "$NPROC" --logdir "$RUN_LOGDIR"; done
   done
 else
   python scripts/eval_parallel.py --suite "${SUITE:?}" --attack "$ATTACK" --injection-tasks "${INJ:-}" --nproc "$NPROC" --logdir "$RUN_LOGDIR"

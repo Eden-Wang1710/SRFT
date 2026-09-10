@@ -111,3 +111,12 @@ on one suite) are not evidence.** For any claim in the paper, evaluate ≥ 3 see
 `MaxMemPerCPU=6000` turns `--mem=64G` into an 11-CPU request, which does not fit the 5–8 free CPUs typically left on busy GPU nodes even when
 GPUs are free. `eval_sdL2.sbatch` now defaults to `-c 5 --mem=30G`; `submit_eval_sdL2.sh` passes `-c 7 --mem=42G` for 2-proc jobs. For
 already-pending jobs: `scontrol update JobId=<id> MinMemoryNode=30000 CPUsPerTask=5 MinCPUsNode=5`.
+
+## Inference knobs (2026-09-10)
+`SYS_APPEND=0|1` (default 1) and `THINK_BUDGET=<tokens>` (default 512) can be passed to `submit_eval_sdL2.sh`; they reach the LLM as
+`QWEN_SAFE_AGENT_SYS_APPEND` / `QWEN_SAFE_AGENT_THINK_BUDGET`. `SUITES_ONLY="travel slack banking"` submits only those shards (benign job
+restricted to the same suites). Paper protocol = append on, 512. Example:
+```
+SUITES_ONLY="travel slack banking" SYS_APPEND=0 bash scripts/submit_eval_sdL2.sh <run>_noappend <ckpt>
+SUITES_ONLY="travel slack banking" THINK_BUDGET=1024 bash scripts/submit_eval_sdL2.sh <run>_think1024 <ckpt>
+```

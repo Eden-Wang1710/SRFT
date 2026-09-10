@@ -250,6 +250,10 @@ def chat_completion_request(
     second_pass_max_new_tokens: int = 512,   # 第二段最多再生成 512
     enable_thinking: bool = True,
 ) -> str:
+    # env override (2026-09-10): QWEN_SAFE_AGENT_THINK_BUDGET=<int> (paper runs used 512 = the default)
+    _env_budget = os.getenv("QWEN_SAFE_AGENT_THINK_BUDGET")
+    if _env_budget:
+        thinking_budget = int(_env_budget)
     device = next(model.parameters()).device
 
     # 1) 编码 & 记录输入长度
