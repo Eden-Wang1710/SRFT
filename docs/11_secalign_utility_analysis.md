@@ -9,6 +9,14 @@ Context: the paper compared SR-Agent (Qwen3-8B) against the released Meta-SecAli
 | Qwen-SecAlign | 68.75 / 54.17 / 15.28 | 85.71 / 49.52 / 10.48 | 60.00 / 52.14 / 7.86 | 70.00 / 60.18 / 1.25 | **70.07 / 56.90 / 5.38** |
 | SR-Agent (v0) | 56.25 / 29.17 / 4.86 | 66.67 / 46.67 / 1.90 | 30.00 / 22.14 / 0.00 | 52.50 / 57.32 / 0.17 | 51.32 / 46.68 / 1.05 |
 
+**Which model is which (user, 2026-09-10):** the table's "Qwen-SecAlign" row is a **Qwen3-8B Meta-SecAlign (SecAlign++ recipe) trained by
+someone else** — its trajectories/CSV are NOT in this repo. The repo's `eval/attack_stats_qwen3_8b_secalign_dpo_Qwen_Qwen3-8B-secalign.csv`
+(think on) is **our own plain-SecAlign DPO on Qwen3-8B** (UA 50.42 / ASR 5.60, no benign column); `..._nothink.csv` is the same LoRA with think off
+(UA 38.78 / ASR 5.37). Keep the two apart: plain SecAlign DPO on Qwen leaves UA at base level (50.4 vs 50.5) with ASR 5.6; the +11 benign /
++6.4 UA row is SecAlign++ (randomized injection position + self-generated labels), which is exactly the recipe difference §2 hypotheses 2 and 5
+predict to matter. Note also that the table's ALL utility is weighted by attacked-trajectory counts (144/105/140/560 → base 58.90, SR-Agent 51.32);
+the paper / `compute_attack_stats.py` use the 97 clean tasks unweighted (60.82, 51.55).
+
 So on the same base, DPO on Alpaca-derived pairs loses to SR-Agent on ASR (5.4 vs 1.05) but **gains 11 benign-utility points over the base**,
 while SR-Agent loses 7.6. Question: where does that utility come from, and should v3 mix Alpaca SFT data to get it?
 
@@ -80,9 +88,10 @@ Eval pipeline `hf_qwen_secalign`: think ON (budget 512 + forced close, same as S
 - Eval hygiene for the ICLR tables: report SR-Agent with and without `_SYS_PROMPT_APPEND`, and run Qwen-SecAlign through the same
   `attack_stats` script/run dir convention so the three rows are computed identically.
 
-## 4. Open questions (need the user / skipjack)
-- Which run is the 70.07 / 56.90 / 5.38 row? The repo's `eval/attack_stats_qwen3_8b_secalign_dpo_*.csv` has UA 50.4 / ASR 5.6 (think) and
-  38.8 / 5.4 (no-think) and no benign column; `04 §0b` cites "DPO only, think on: UA 50.4 = base at ASR 5.6". The table's row looks like a
-  later/different run (or different stats script) — it needs a run dir in `agentdojo/runs/` and a ledger row before it goes into a paper table.
+## 4. Open questions
+Resolved 2026-09-10: the 70.07 row is a third party's Qwen3-8B Meta-SecAlign (SecAlign++), not in the repo; `qwen3_8b_secalign_dpo` (think on) is our
+plain-SecAlign replication. Still open:
+- The third-party Qwen Meta-SecAlign run needs its trajectory dir (or at least the per-suite benign counts) before it goes into a paper table,
+  and we need to know whether it added the `input` role / how it was prompted in AgentDojo.
 - `qwen3_secalign_dpo.json`: are chosen/rejected the SecAlign release's davinci-003 labels or Qwen-generated (SecAlign++ style)? Not on disk here.
 - Was the eval run with AgentDojo's sandwich (`repeat_user_prompt`) defense? Meta-SecAlign's headline AgentDojo numbers use it; ours should not.

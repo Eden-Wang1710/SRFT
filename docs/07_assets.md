@@ -35,6 +35,10 @@ Remote copies of every `toucan_*.json` below: HF dataset `EdenWong1710/srft-data
   - `<suite>/injection_task_M/none/none.json` — 35 "pure injection" runs (injection task executed as the user task, no attack)
   - **No benign `user_task_N/none/none.json` runs here.** Benign-utility numbers in the paper come from a separate no-attack run
     (`qwen3_8b_toucan_lora_think_sys_append_no_attack`, only its CSV survived in `agentdojo/eval/`, run dir not migrated).
+- Baseline CSVs in `agentdojo/eval/` (run dirs not migrated): `attack_stats_Qwen_Qwen3-8B_baseline.csv` = base Qwen3-8B (think, 60.82 / 50.47 / 16.97);
+  `attack_stats_qwen3_8b_secalign_dpo_Qwen_Qwen3-8B-secalign.csv` = **our plain-SecAlign DPO on Qwen3-8B, think on** (UA 50.42 / ASR 5.60, no benign);
+  `..._secalign_dpo_nothink_...` = same LoRA, think off. The "Qwen-SecAlign 70.07 / 56.90 / 5.38" row in the user's comparison sheet is a
+  third-party Qwen3-8B Meta-SecAlign (SecAlign++), NOT in this repo (see `11_secalign_utility_analysis.md`).
 - Per-file JSON keys: `suite_name, pipeline_name, user_task_id, injection_task_id, attack_type, injections, messages, error,
   benchmark_version (v1.2.1), utility, security, duration`. **`security: true` = attack succeeded** (repo convention).
 
