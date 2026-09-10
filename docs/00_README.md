@@ -16,6 +16,7 @@ Migrated from the old server (DSAI, `/scratch/cxiao13/zixuan/SRFT`) to skipjack 
 | [09_cluster_skipjack.md](09_cluster_skipjack.md) | Skipjack (JHU) docs links, hardware/partitions, ssh config, queue gotchas |
 | [09_cluster_washu.md](09_cluster_washu.md) | WashU RIS Compute2: account, partitions, storage, how to submit, queue reality, verified commands |
 | [10_sync_workflow.md](10_sync_workflow.md) | Two-cluster workflow: `env/` layer, `env/sb` job submission, git branch rules, HF data/ckpt exchange, new-machine setup |
+| [11_secalign_utility_analysis.md](11_secalign_utility_analysis.md) | why SecAlign/Meta-SecAlign DPO keeps utility on the same Qwen base (papers + our replication) and what it implies for v3 / an Alpaca mix |
 | [03_analysis_utility_drop.md](03_analysis_utility_drop.md) | Why SR-Agent loses utility (data + inference evidence) and review of the ICLR self-rewrite plan |
 | [04_self_distill_plan.md](04_self_distill_plan.md) | Concrete self-distillation recipe: per-step prompts, hint ladder, filters, training config |
 | [05_training.md](05_training.md) | LLaMA-Factory env, paper recipe, verified launcher, data-format gotcha, run table |
