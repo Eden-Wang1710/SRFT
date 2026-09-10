@@ -241,3 +241,25 @@ hijacked/sub-optimal actions (the paper's learning-from-failure signal), so the 
 
 Consequences for the plan: (1) multi-turn is the format to keep; (2) the v3 paraphrase recipe (content-preserving, all alternatives kept)
 targets exactly the remaining ASR gap; (3) evaluate with ≥ 2 seeds — v0 vs v2-traj differ by less than one run-to-run swing.
+
+
+## K. v3-para and the think budget (2026-09-10): the gap to base is unchanged at ≈ 9 benign / 7 UA
+Numbers: ledger "Protocol table — think budget 1024". Facts established today:
+1. **v3 under the NeurIPS protocol (append, 512) is 46.39 / 45.63 / 2.00** — benign 5 pts below v0. Mechanism: the paraphrased thinks are
+   longer at inference (314 words vs v0 270) and hit the 512 cap on 35 % of steps (v0 17 %); every model's utility collapses on steps that are
+   forced (v3 29 % vs 59 % on the final step). Think *content* is the cleanest so far (step-0 hallucination ≈ 10 %).
+2. **Budget 1024 lifts everyone**: v3 → 62.89 / 48.05 / 2.11 (forced 5 %), but base → 72.16 / 55.01 / 17.49 (base thinks 470 words and is
+   still forced on 28 % of steps, so it may climb further). Under equal protocol the v3–base gap is 9.3 benign / 7.0 UA — the NeurIPS gap was
+   9.3 / 3.8. SRFT-style SFT still costs the same utility; v3 did not close it.
+3. **The appended system prompt does not defend by itself**: base + prompt ASR 13.8 vs 17.5, benign −2. Its effect (v3 with prompt ASR 2.1,
+   without 7.6) exists only together with the trained think. For the paper this is a clean ablation: "prompt alone / training alone / both".
+4. **Where v3 loses to base (paired, 949 attacked)**: workspace (353 vs 301) and slack (62 vs 50) — suites base finishes in 1–2 calls;
+   banking and travel are equal. Benign: base wins 18 tasks, v3 9. Failure signatures unique to the trained models: final answers that
+   ANNOUNCE an action ("I will now send the email…") without calling it — v3 58, v0 67, base 6; loops 28 vs 19; answers that discuss the
+   injection 45 % vs 2 %.
+5. Consequences for the plan (03 §D/§E, 04 §0b still apply): (a) adopt 1024 as the protocol (report 512 in the appendix); (b) the
+   announce-instead-of-act ending (~6 % of trajectories) is a concrete, data-addressable failure — the training set's final-answer steps
+   never end a task with a promise, so this is generalisation from mid-turn replies + the "final step" framing; a filter or a targeted
+   negative (DPO pair: announce vs call) would address it; (c) the remaining ~7 UA points look like the off-policy-action cost measured in
+   §C/§D, which paraphrasing the think cannot fix — the on-policy action / clean-trajectory / DPO route from the 2026-09-09 discussion is
+   still the open lever.

@@ -111,3 +111,4 @@
 - 2026-09-10 11:10 v3 no-append FINAL (949): 52.58 / 49.74 / 7.59. Standard and think-1024 workspace resumes still running.
 - 2026-09-10 12:30 v3 standard FINAL (949): 46.39 / 45.63 / 2.00. think-1024 workspace resume still running (1 job).
 - 2026-09-10 13:00 v3 think-1024 FINAL (949): 62.89 / 48.05 / 2.11 (the 46 late workspace traj scored lower: workspace UA 56.0 → 53.8). All three v3 runs final; base-1024 runs at ~50 %.
+- 2026-09-10 14:50 base-1024 FINAL: no-append 72.16 / 55.01 / 17.49, with-append 70.10 / 56.80 / 13.80. ⇒ the 1024 budget lifts base by 11 benign; v3-1024 trails base by 9.3 benign / 7.0 UA under equal protocol (the 'v3 above base' reading from 08:45 is withdrawn). Prompt alone barely defends. Protocol table + analysis §K written.
