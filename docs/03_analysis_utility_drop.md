@@ -323,3 +323,21 @@ minor component.** The two big ones are:
 - (c) **Clean-trajectory replay** (03 §E / 04 §0b: 3,488 injection-free copies derivable for free) in the SFT mix directly targets over-defence:
   the same tasks completed without any injection talk. Cheapest change, one training run.
 - (d) Eval hygiene: report paired 2×2 tables, not only aggregates; 2 seeds before reading ±3.
+
+### L.1 Is it "the model got worse" or "the policy moved"? (2026-09-10)
+The signatures in §L are spread over several failure modes, which invites the reading "SFT degraded the model in general". Four measurements say
+it is instead a **shift of the action policy**, broad but structured, with a learned over-defence bolted on:
+1. **v3 also wins 102 of the trajectories base loses** (168 / 102, and benign 18 / 9). travel `user_task_0`: base 0/7, every SFT model 7/7.
+   Uniform capability loss does not produce a win column that size.
+2. **Conditioned on taking base's action path, v3 is as good as base.** Split the 949 attacked trajectories by whether v3's tool-call
+   *sequence* equals base's: identical sequence 220 traj → base 79.1 % vs v3 **76.4 %** (gap 2.7); different sequence 729 traj → base 47.7 %
+   vs v3 **39.5 %** (gap 8.2). Execution and answering given a plan are intact; *choosing* the plan is what moved. (The identical-sequence set
+   is the easier half, so this is a conditional statement, not a matched experiment.)
+3. **The same tasks are lost by v0, v2-traj and v3**, whose think text is completely different (Claude-written / L2 Qwen / paraphrase):
+   6 workspace tasks = 53 of the 114 workspace losses in every model (§L table). The invariant across those three is not the think, it is the
+   **expert action distribution of the TOUCAN trajectories plus the recipe**. So it is not a data bug in any one version either.
+4. **30 % of the losses are an added behaviour, not a lost one**: declining / truncating the benign task because of the injection. base does it
+   in 4 % of the same trajectories, and the training answers do it in 0 of 3,698. Nothing was forgotten; something was learned.
+Not yet measured, and the thing reviewers will ask for: a **general-capability control** (MMLU / IFEval / BBH on v3 vs base, the check SecAlign
+and Meta-SecAlign both report, where they lose 2–3 pts). If v3's general benchmarks are flat, "capability loss" is excluded outright and the
+whole gap is attributable to the agentic action policy. Cheap: lm-eval-harness, 1 GPU, a few hours; no new training.
