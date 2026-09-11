@@ -22,6 +22,9 @@ Remote copies of every `toucan_*.json` below: HF dataset `EdenWong1710/srft-data
 - **Llama data (2026-09-11):** `LLaMA-Factory/data/toucan_32B_v3_base_llama_local.json` (+ `.stats.json`), registered `toucan_32B_v3_base_llama_local`;
   = `toucan_32B_v3_base` re-rendered in the AgentDojo `local` tool format by `multibase/convert_llama_local.py` (content verbatim). LoRA →
   `LLaMA-Factory/saves/llama31-8b/lora/v3base_local_sft_8k_r64_GA4_qkvo_3epoch_5e-6`. Base weights `meta-llama/Llama-3.1-8B-Instruct` in `$HF_HOME` (gated, access OK).
+- **Qwen3-4B (ledger §Q4)**: no separate data file — `toucan_32B_v3_base.json` is used unchanged (same qwen3 template as the 8B).
+  LoRA → `LLaMA-Factory/saves/qwen3-4b/lora/v3base_traj_sft_8k_r64_GA4_qkvo_3epoch_5e-6` (training 3009792). Base weights `Qwen/Qwen3-4B`
+  (hybrid thinking, NOT `Qwen3-4B-Instruct-2507`) in `$HF_HOME`, 7.6 GB, downloaded on WashU 2026-09-11 by job 3009741.
 
 ## Checkpoints
 - **Paper LoRA:** `LLaMA-Factory/saves/qwen3-8b/lora/toucan_32B_v2_sft_8k_r64_GA4_qkvo_3epoch_5e-6/`

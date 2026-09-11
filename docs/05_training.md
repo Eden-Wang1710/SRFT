@@ -45,6 +45,7 @@ further multi-turn run, including the distilled v3 datasets: copy, change `datas
 | v2 | toucan_32B_v2_sdL2fa_perstep | as v1b, expert answers restored, 19,271 samples | 318170 | submitted 2026-09-06 |
 | v0' | toucan_32B_v3_base | `qwen3_8b_lora_sft_v3base_traj.yaml` = paper yaml, dataset/output_dir only; 2 GPUs GA 8 | – | cancelled by user 2026-09-09 (config kept as template) |
 | v3-para | toucan_32B_v3_para | `qwen3_8b_lora_sft_v3para_traj.yaml` = template, dataset/output_dir only; **1 GPU, NPROC_PER_NODE=1, GA 16**, 10 h | 347215 | DONE 2026-09-09 23:00: 1×L40S (gl106), 696 steps, 7 h 41, train_loss 0.888 (≈ 2.1× the 2×L40S time of v2-traj, as expected) |
+| Q4-v3base (Qwen3-4B) | toucan_32B_v3_base (unchanged) | `qwen3_4b_lora_sft_v3base_traj.yaml` = the 8B v0' yaml with `model_name_or_path: Qwen/Qwen3-4B` and `output_dir` changed, nothing else (diff-verified); 1 GPU, GA 16, `-p general-gpu` (no preempt: no auto-resume in the launcher) | 3009792 | RUNNING 2026-09-11 02:38, WashU 1×H100 c2-gpu-005, 12 h limit |
 | L-v3base (Llama) | toucan_32B_v3_base_llama_local | `llama31_8b_lora_sft_v3base_local.yaml` = template with model `meta-llama/Llama-3.1-8B-Instruct`, `template: llama3` (no enable_thinking), dataset/output_dir; 1 GPU GA 16, 10 h | 376723 | started 2026-09-11 on 1×L40S (gl111) |
 
 Scheduling lesson (2026-09-09): 1-GPU jobs on `l40s` started within seconds all night while the 2-GPU training request sat 8 h with reason None. For ≤ 8k-token LoRA runs prefer 1 GPU + GA 16 (fits a 46 GB L40S with gradient checkpointing; v2-traj's per-GPU footprint at 8k proved it).
@@ -68,3 +69,15 @@ Scheduling lesson (2026-09-09): 1-GPU jobs on `l40s` started within seconds all 
   that has no thought (also history turns). The official Qwen3 template and our inference path do NOT. `template.py` now skips this for history
   turns when env `LF_NO_HISTORY_EMPTY_COT=1` is set (pass it via `--export`). Without the flag behaviour is unchanged.
 - Launch: `bash env/sb gpu --gres=gpu:2 -t 08:00:00 --export=ALL,SFT_CONFIG=<yaml>,EXTRA_ARGS="gradient_accumulation_steps=8",LF_NO_HISTORY_EMPTY_COT=1 LLaMA-Factory/scripts/train_qwen3_8b_sdL2_sft.slurm`
+
+## Other base models (multi-base experiments, 2026-09-11)
+The launcher is model-agnostic; a new base model needs a yaml and nothing else when it shares the template.
+- **Qwen3-4B** (`exp/qwen3-4b-srft`, ledger §Q4): `examples/train_lora/qwen3_4b_lora_sft_v3base_traj.yaml`, two lines changed vs the 8B yaml.
+  The data is reused byte-for-byte because Qwen3-4B and Qwen3-8B share the qwen3 chat template (verified: `chat_template` sha1 `b066ba71c1b5`
+  on both snapshots). Use `Qwen/Qwen3-4B` (hybrid thinking), NOT `Qwen3-4B-Instruct-2507`.
+  ```bash
+  bash env/sb gpu -p general-gpu --gres=gpu:1 -c 5 --mem=30G -t 12:00:00 -J sft_q4b_v3base \
+    --export=ALL,SFT_CONFIG=examples/train_lora/qwen3_4b_lora_sft_v3base_traj.yaml,EXTRA_ARGS="gradient_accumulation_steps=16" \
+    LLaMA-Factory/scripts/train_qwen3_8b_sdL2_sft.slurm
+  ```
+- **Llama-3.1-8B-Instruct** (`exp/llama31-8b-srft`, ledger §L): needs a data conversion (different template and tool protocol), see that branch.

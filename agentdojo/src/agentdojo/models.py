@@ -45,6 +45,8 @@ class ModelsEnum(StrEnum):
     """Meta SecAlign 8B"""
     QWEN_3_4B_Instruct = "Qwen/Qwen3-4B-Instruct-2507"
     """Qwen 3 4B Instruct"""
+    QWEN_3_4B_SAFE_AGENT = "Qwen/Qwen3-4B-safe-agent"
+    """SR-Agent on Qwen3-4B (original hybrid-thinking Qwen3-4B, NOT Qwen3-4B-Instruct-2507); same pipeline as Qwen3-8B-safe-agent"""
     QWEN_3_8B =  "Qwen/Qwen3-8B"
     """Qwen 3 8B"""
     QWEN_3_8B_SAFE_AGENT =  "Qwen/Qwen3-8B-safe-agent"
@@ -99,6 +101,7 @@ MODEL_PROVIDERS = {
     ModelsEnum.LLAMA_3_1_8B_SAFE_AGENT: "hf_llama_sr_agent",
     ModelsEnum.META_SECALIGN_8B: "hf_meta_secalign",
     ModelsEnum.QWEN_3_4B_Instruct: "hf_qwen",
+    ModelsEnum.QWEN_3_4B_SAFE_AGENT: "hf_qwen_8b_safe_agent",
     ModelsEnum.QWEN_3_8B: "hf_qwen_8b_think",
     ModelsEnum.QWEN_3_8B_SAFE_AGENT: "hf_qwen_8b_safe_agent",
     ModelsEnum.QWEN_3_8B_SECALIGN: "hf_qwen_secalign",
@@ -139,6 +142,7 @@ MODEL_NAMES = {
     "meta-llama/Llama-3.1-8B-Instruct-safe-agent": "AI assistant",
     "facebook/Meta-SecAlign-8B": "AI assistant",
     "Qwen/Qwen3-4B-Instruct-2507": "AI assistant",
+    "Qwen/Qwen3-4B-safe-agent": "AI assistant",
     "Qwen/Qwen3-8B": "AI assistant",
     "Qwen/Qwen3-8B-safe-agent": "AI assistant",
     "Qwen/Qwen3-8B-secalign": "AI assistant",

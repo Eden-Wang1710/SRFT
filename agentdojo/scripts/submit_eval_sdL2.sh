@@ -14,6 +14,7 @@ SYS_APPEND=${SYS_APPEND:-1}; THINK_BUDGET=${THINK_BUDGET:-512}          # infere
 MODEL=${MODEL:-QWEN_3_8B_SAFE_AGENT}                                      # 2026-09-11: LLAMA_3_1_8B_SAFE_AGENT for SR-Agent-Llama
 case "$MODEL" in
   QWEN_3_8B_SAFE_AGENT) MODEL_DIR=Qwen_Qwen3-8B-safe-agent ;;
+  QWEN_3_4B_SAFE_AGENT) MODEL_DIR=Qwen_Qwen3-4B-safe-agent ;;
   LLAMA_3_1_8B_SAFE_AGENT) MODEL_DIR=meta-llama_Llama-3.1-8B-Instruct-safe-agent ;;
   *) echo "submit_eval_sdL2.sh: unknown MODEL=$MODEL" >&2; exit 2 ;;
 esac
