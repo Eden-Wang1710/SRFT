@@ -138,6 +138,9 @@ reflection stored as a thinking block (not scored) and re-inserted into the hist
 **Llama OOMs on L40S (2026-09-11):** even 1-proc workspace shards (and 2-proc benign) ran out of the 44 GB of an L40S (7 of 40 Llama jobs).
 Submit Llama evals with `PARTS=a100,h100,h200`; failed shards resume by resubmitting the same shard (reruns also set
 `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` via `--export`).
+**Tag drift (2026-09-11):** with `SYS_APPEND=1` SR-Agent-Llama sometimes writes `<thinking>…</thinking>`; `parse_output` accepts both spellings
+since 14:40 (runs before that — `llama31_v3base_local_3epoch` — scored 131 final answers with the reflection inside the answer text). When checking a
+new model's outputs, count reflection-tag variants before trusting utility numbers.
 
 ## sbatch stderr noise (2026-09-11)
 skipjack's `cli_filter` now prints `failed to load /etc/slurm/rates.lua … cost preview disabled` on stderr for every sbatch. The submitter used to

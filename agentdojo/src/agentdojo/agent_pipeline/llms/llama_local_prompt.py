@@ -50,7 +50,10 @@ SYS_PROMPT_APPEND = (
 
 _ROLE_HEADER = {"system": "system", "user": "user", "assistant": "assistant", "tool": "ipython"}
 _FUNCTION_RE = re.compile(r"<function\s*=\s*([^>]+)>")
-_THINK_RE = re.compile(r"<think>(.*?)</think>", re.DOTALL)
+# 2026-09-11: with the Fig. 5 append ("For your thinking process …") SR-Agent-Llama opens 13 % of turns with <thinking>…</thinking>
+# instead of the trained <think>…</think> (never without the append). Accept both spellings so the reflection is not scored as answer text.
+_THINK_OPEN_RE = re.compile(r"<think(?:ing)?>")
+_THINK_CLOSE_RE = re.compile(r"</think(?:ing)?>")
 
 
 def make_system_prompt(system_message: str, tools: list[dict], append: bool = False) -> str:
@@ -89,15 +92,20 @@ def render(messages: list[dict], add_generation_prompt: bool = True) -> str:
 
 def parse_output(text: str) -> tuple[str | None, str, tuple[str, dict] | None]:
     """-> (reflection or None, visible text before the call / final answer, (name, args) or None).
-    A reflection that never closes is returned whole as `think` with empty visible text."""
+    A reflection that never closes ends at the first <function=…> tag if there is one; otherwise it is returned whole as `think`
+    with empty visible text."""
     text = text.strip()
     think = None
-    if text.startswith("<think>"):
-        m = _THINK_RE.match(text)
-        if m:
-            think, text = m.group(1).strip(), text[m.end():].strip()
+    opened = _THINK_OPEN_RE.match(text)
+    if opened:
+        closed = _THINK_CLOSE_RE.search(text, opened.end())
+        if closed:
+            think, text = text[opened.end(): closed.start()].strip(), text[closed.end():].strip()
         else:
-            return text[len("<think>"):].strip(), "", None
+            call = _FUNCTION_RE.search(text, opened.end())
+            if not call:
+                return text[opened.end():].strip(), "", None
+            think, text = text[opened.end(): call.start()].strip(), text[call.start():]
     m = _FUNCTION_RE.search(text)
     if not m:
         return think, text, None
