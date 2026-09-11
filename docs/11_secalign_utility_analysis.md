@@ -74,10 +74,16 @@ Eval pipeline `hf_qwen_secalign`: think ON (budget 512 + forced close, same as S
 ## 3. Consequences for v3 and the "v3 + Alpaca SFT mix" idea
 - **Not now, and not as SFT.** Mixing no-think davinci answers into a think-mode SFT is off-policy on two axes (style and mode; needs empty
   `<think>\n\n</think>` wrappers, `mix_qwen3_secalign_sft_with_toucan.py` does that), has already hurt UA once, and would confound the v3 read-out.
-- **v3 is already the Meta-SecAlign lesson applied to our thinks** (self-generated labels: Qwen paraphrases Claude's reasoning in its own
+- **Update 2026-09-10 (skipjack results, ledger + 03 §K):** v3-para is in. Under the NeurIPS protocol (append, think 512) it is 46.39 / 45.63 / 2.00
+  (benign −5 vs v0, thinks longer → 35 % forced transitions); with think budget 1024 it is 62.89 / 48.05 / 2.11, but base Qwen3-8B at 1024 is
+  72.16 / 55.01 / 17.49 (no append) — **the v3–base gap is still ≈ 9 benign / 7 UA under equal protocol**. So paraphrasing the think did not
+  close the gap; the remaining loss is the off-policy-*action* cost (03 §C/§D) plus the "announce an action instead of calling it" ending
+  (v3 58 / v0 67 / base 6 trajectories). This makes the point below the live one: the next lever is a preference/on-policy-action stage
+  (announce-vs-call and injection-following-vs-expert pairs from our own records), not an Alpaca SFT mix.
+- **v3 was the Meta-SecAlign lesson applied to our thinks** (self-generated labels: Qwen paraphrases Claude's reasoning in its own
   distribution). If v3 benign utility ≥ base (60.8 / 58.9), hypothesis 1 is confirmed and no Alpaca mix is needed; keep "v3 + Alpaca" at most
   as a reviewer-facing ablation row.
-- **If v3 is still below base, the next lever mirrors SecAlign's *objective*, not its corpus:** a light DPO stage on top of the v3 SFT with
+- **v3 is below base, so the next lever mirrors SecAlign's *objective*, not its corpus:** a light DPO stage on top of the v3 SFT with
   self-generated, on-distribution pairs from our per-step records — chosen = expert/clean action with the v3 think, rejected = the Qwen3-32B
   candidate that follows the injection (23 % of injected steps have one, 04 §0b) — small α (8), 1 epoch, β 0.1. Prior data point:
   SFT(v0) + SecAlign-DPO on Alpaca pairs → UA 48.2 / ASR 2.85 vs 46.7 / 1.05 (04 §0b): +1.5 UA for +1.8 ASR even with off-distribution pairs.
