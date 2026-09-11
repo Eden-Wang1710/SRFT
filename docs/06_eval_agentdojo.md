@@ -135,6 +135,9 @@ Format: AgentDojo `local` prompt (`<function=name>{json}</function>`, reasoning 
 reflection stored as a thinking block (not scored) and re-inserted into the history as `<think>…</think>` text — token-identical to training
 (`multibase/check_llama_render.py`). Base Llama in the smoke: ~1 s per step on A100, writes reasoning text then a call, loops through
 `get_most_recent_transactions(n=1,2,3…)`; result JSONs normal.
+**Llama OOMs on L40S (2026-09-11):** even 1-proc workspace shards (and 2-proc benign) ran out of the 44 GB of an L40S (7 of 40 Llama jobs).
+Submit Llama evals with `PARTS=a100,h100,h200`; failed shards resume by resubmitting the same shard (reruns also set
+`PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` via `--export`).
 
 ## sbatch stderr noise (2026-09-11)
 skipjack's `cli_filter` now prints `failed to load /etc/slurm/rates.lua … cost preview disabled` on stderr for every sbatch. The submitter used to
