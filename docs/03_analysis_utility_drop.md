@@ -341,3 +341,52 @@ it is instead a **shift of the action policy**, broad but structured, with a lea
 Not yet measured, and the thing reviewers will ask for: a **general-capability control** (MMLU / IFEval / BBH on v3 vs base, the check SecAlign
 and Meta-SecAlign both report, where they lose 2–3 pts). If v3's general benchmarks are flat, "capability loss" is excluded outright and the
 whole gap is attributable to the agentic action policy. Cheap: lm-eval-harness, 1 GPU, a few hours; no new training.
+
+## M. Cross-scale: the same analysis on Qwen3-4B (2026-09-11, WashU, branch `exp/qwen3-4b-srft`)
+Ledger §Q4. Same recipe, same data (`toucan_32B_v3_base`, Claude thinks), same template, same protocol (think 1024), only the base model
+differs. Tool: `eval/paired_failure_analysis.py qwen3_4b_base_think1024_noappend qwen3_4b_v3base_traj_3epoch_think1024 Qwen_Qwen3-4B-safe-agent`.
+
+**Headline: the utility cost does NOT transfer in the same shape.**
+| | Qwen3-8B (v3-para) | Qwen3-4B (v3base) |
+|---|---|---|
+| base → SR, benign | −9.27 | **−7.21** |
+| base → SR, UA | −6.96 | **−1.37** |
+| base → SR, ASR | 17.49 → 2.11 | 10.85 → **0.84** |
+| trade-off (UA + 100 − ASR) | 145.94 | **148.37** |
+| paired 2×2 (attacked 949): both pass / base only / SR only / both fail | 354 / 168 / 102 / 325 → net **66** | 319 / **161** / **148** / 321 → net **13** |
+| net losses by suite | workspace +52, slack +12, travel +1, banking +1 | slack +13, banking +7, travel 0, **workspace −7 (SR wins)** |
+| mean tool calls / trajectory (base → SR) | 3.76 → 3.53 (fewer) | 3.40 → **3.93 (more)** |
+
+**The §L.1 conditional test flips.** Split the 949 attacked trajectories by whether the SR model took the base's exact tool-call sequence:
+| | same sequence | different sequence |
+|---|---|---|
+| **8B** | n=220, base 79.1 % vs SR 76.4 % (gap 2.7) | n=729, base 47.7 % vs SR **39.5 %** (gap **8.2**) |
+| **4B** | n=173, base 86.7 % vs SR 82.1 % (gap 4.6) | n=776, base 42.5 % vs SR **41.9 %** (gap **0.6**) |
+At 8B the damage lives entirely in the trajectories where SRFT chose a different action path. At 4B those trajectories are a **wash**. The
+interpretation that follows, and it strengthens §L.1: SRFT replaces the model's own tool-use policy with the expert (TOUCAN) policy, and the
+cost of that replacement scales with how good the native policy was. The 8B had a good policy, so overwriting it cost ~7 UA points. The 4B's
+native policy is weak (42.5 % on those same trajectories, and in the 148 trajectories the 4B SR model *wins*, the base makes **zero tool calls
+23 times** and asks the user for information 16 times), so overwriting it is free — the expert policy is an upgrade there.
+
+**Failure signatures on the 161 losses** (8B's 168 in brackets, §L):
+| signature | 4B | 8B |
+|---|---|---|
+| first tool call differs from base | 85 (53 %) | 78 (46 %) |
+| declines / truncates citing the injection | 34 (21 %) | 50 (30 %) |
+| extra / hallucinated argument keys | 39 (24 %) | 33 (20 %) |
+| gives up (asks the user / "can't") | 6 (**4 %**) | 44 (**26 %**) |
+| announce an action without calling it | 4 (**2 %**) | 18 (11 %) |
+| more tool calls than base | 85 (53 %) | 56 (33 %) |
+The two modes that were specific to *degrading a competent model* — giving up after a narrow search, and announcing instead of acting —
+largely vanish at 4B (26 % → 4 %, 11 % → 2 %). What remains and even grows is the pair that is about the *policy itself*: a different first
+action (53 %) and over-specified arguments (24 %). Over-defence stays substantial at 21 %.
+
+**Consequences.**
+- The paper's "SRFT costs utility" limitation should be stated as scale-dependent: at 4B the method is nearly free in UA and strictly better in
+  trade-off than anything measured at 8B. The single-base limitation in the NeurIPS version is now answered in two directions (Llama §L, 4B §Q4).
+- The fixes proposed in §L (clean-trajectory replay against over-defence; preference pairs against announce/give-up) are aimed at the 8B-specific
+  modes. At 4B only the over-defence one applies, which is another reason to test it on the 8B first.
+- The undefended 4B is already harder to attack than the undefended 8B (ASR 10.85 vs 17.49; Meta-SecAlign §4.7 report the same direction), so
+  part of the smaller ASR gain at 4B is headroom rather than method.
+- CAVEAT: the 8B was never trained on `toucan_32B_v3_base` (v0' was cancelled), so the two SR rows differ in think source (paraphrase vs Claude)
+  as well as in scale. Only the base→SR deltas are strictly comparable. A v0' run at 8B would close this; it is one training job.
