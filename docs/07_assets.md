@@ -19,6 +19,9 @@ Remote copies of every `toucan_*.json` below: HF dataset `EdenWong1710/srft-data
   74 MB, registered as dataset `toucan_32B_v2` in `LLaMA-Factory/data/dataset_info.json`.
   Assistant turns contain `<think>…</think>` self-reflection followed by `<tool_call>`.
 - Other datasets referenced in `dataset_info.json` (e.g. `qwen3_secalign_sft_toucan_32B_v2_mix`) are NOT present on disk — only `toucan_32B_v2.json` was copied.
+- **Llama data (2026-09-11):** `LLaMA-Factory/data/toucan_32B_v3_base_llama_local.json` (+ `.stats.json`), registered `toucan_32B_v3_base_llama_local`;
+  = `toucan_32B_v3_base` re-rendered in the AgentDojo `local` tool format by `multibase/convert_llama_local.py` (content verbatim). LoRA →
+  `LLaMA-Factory/saves/llama31-8b/lora/v3base_local_sft_8k_r64_GA4_qkvo_3epoch_5e-6`. Base weights `meta-llama/Llama-3.1-8B-Instruct` in `$HF_HOME` (gated, access OK).
 
 ## Checkpoints
 - **Paper LoRA:** `LLaMA-Factory/saves/qwen3-8b/lora/toucan_32B_v2_sft_8k_r64_GA4_qkvo_3epoch_5e-6/`

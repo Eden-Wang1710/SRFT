@@ -45,9 +45,21 @@ further multi-turn run, including the distilled v3 datasets: copy, change `datas
 | v2 | toucan_32B_v2_sdL2fa_perstep | as v1b, expert answers restored, 19,271 samples | 318170 | submitted 2026-09-06 |
 | v0' | toucan_32B_v3_base | `qwen3_8b_lora_sft_v3base_traj.yaml` = paper yaml, dataset/output_dir only; 2 GPUs GA 8 | – | cancelled by user 2026-09-09 (config kept as template) |
 | v3-para | toucan_32B_v3_para | `qwen3_8b_lora_sft_v3para_traj.yaml` = template, dataset/output_dir only; **1 GPU, NPROC_PER_NODE=1, GA 16**, 10 h | 347215 | DONE 2026-09-09 23:00: 1×L40S (gl106), 696 steps, 7 h 41, train_loss 0.888 (≈ 2.1× the 2×L40S time of v2-traj, as expected) |
+| L-v3base (Llama) | toucan_32B_v3_base_llama_local | `llama31_8b_lora_sft_v3base_local.yaml` = template with model `meta-llama/Llama-3.1-8B-Instruct`, `template: llama3` (no enable_thinking), dataset/output_dir; 1 GPU GA 16, 10 h | 376723 | started 2026-09-11 on 1×L40S (gl111) |
 
 Scheduling lesson (2026-09-09): 1-GPU jobs on `l40s` started within seconds all night while the 2-GPU training request sat 8 h with reason None. For ≤ 8k-token LoRA runs prefer 1 GPU + GA 16 (fits a 46 GB L40S with gradient checkpointing; v2-traj's per-GPU footprint at 8k proved it).
 | sdL2 v1 | toucan_32B_v2_sdL2 | dataset + output_dir only (mask_history=false); 2×H200, GA 8 (eff. batch 16), 696 steps | 313882 | DONE 2026-09-05 14:38: 84 min, train_loss 0.804 (paper 0.978); ckpts 232/464/696 = epoch 1/2/3 |
+
+## Second base model: Llama-3.1-8B-Instruct (2026-09-11, branch `exp/llama31-8b-srft`; ledger section "L")
+- Weights: `hf download meta-llama/Llama-3.1-8B-Instruct --exclude "original/*"` (gated; the `EdenWong1710` token already has access; 15 GB in `$HF_HOME`).
+- Data: `python multibase/convert_llama_local.py` (any env) → `toucan_32B_v3_base_llama_local.json`; then `python multibase/check_llama_render.py
+  --n 300 --all-lengths` in `llamafactory` (CPU, ~3 min) must print `N/N identical token sequences` — it compares LLaMA-Factory's `llama3`
+  encoding with the inference render of `agentdojo/.../llms/llama_local_prompt.py`. Re-run it after touching either side.
+- Non-reasoning template: the `<think>…</think>` reflection is plain assistant text, so the qwen3 format gotcha below does not apply; the base
+  `Template` class never strips it (verified in `template.py::_encode`), and history turns keep their reflections (`mask_history: false`) — the
+  Llama inference pipeline keeps them too.
+- Launch (1 GPU): `bash env/sb gpu --gres=gpu:1 -c 5 --mem=30G -t 10:00:00 -J sft_llama31_v3base --export=ALL,SFT_CONFIG=examples/train_lora/llama31_8b_lora_sft_v3base_local.yaml,NPROC_PER_NODE=1,EXTRA_ARGS="gradient_accumulation_steps=16" LLaMA-Factory/scripts/train_qwen3_8b_sdL2_sft.slurm`
+  (the launcher is model-agnostic despite its name).
 
 ## Per-step / inference-consistent training (v1b, 2026-09-05)
 - Data: `self_distill/explode_per_step.py` explodes each trajectory into one sample per assistant step; history assistant turns are think-free.

@@ -120,3 +120,23 @@ restricted to the same suites). Paper protocol = append on, 512. Example:
 SUITES_ONLY="travel slack banking" SYS_APPEND=0 bash scripts/submit_eval_sdL2.sh <run>_noappend <ckpt>
 SUITES_ONLY="travel slack banking" THINK_BUDGET=1024 bash scripts/submit_eval_sdL2.sh <run>_think1024 <ckpt>
 ```
+
+## SR-Agent-Llama / base Llama (2026-09-11, VERIFIED by smoke 376718)
+`MODEL=<ModelsEnum name>` selects the pipeline in `submit_eval_sdL2.sh` / `eval_sdL2.sbatch` (default `QWEN_3_8B_SAFE_AGENT`, unchanged).
+`MODEL=LLAMA_3_1_8B_SAFE_AGENT` → provider `hf_llama_sr_agent` (`llms/llama_sr_agent_llm.py` + `llms/llama_local_prompt.py`), run subdir
+`meta-llama_Llama-3.1-8B-Instruct-safe-agent` (the stats job uses it automatically). Same knobs: `LORA_PATH` (non-existent → base Llama) and
+`SYS_APPEND` (→ `LLAMA_SR_AGENT_SYS_APPEND`); `THINK_BUDGET` is ignored (no think mode). Extra env for the LLM: `LLAMA_SR_AGENT_MAX_NEW_TOKENS`
+(1536), `_TEMPERATURE` / `_TOP_P` (0.6 / 0.9), `_BASE_MODEL`, `_PRINT_FIRST_INPUTS` (2 raw prompts per process are printed to the proc log).
+```
+MODEL=LLAMA_3_1_8B_SAFE_AGENT SYS_APPEND=0 bash agentdojo/scripts/submit_eval_sdL2.sh llama31_base_noappend /nonexistent_base_model_fallback
+MODEL=LLAMA_3_1_8B_SAFE_AGENT SYS_APPEND=1 bash agentdojo/scripts/submit_eval_sdL2.sh llama31_v3base_local_3epoch $PWD/LLaMA-Factory/saves/llama31-8b/lora/<run>
+```
+Format: AgentDojo `local` prompt (`<function=name>{json}</function>`, reasoning allowed before the call), tool outputs as raw `ipython` turns,
+reflection stored as a thinking block (not scored) and re-inserted into the history as `<think>…</think>` text — token-identical to training
+(`multibase/check_llama_render.py`). Base Llama in the smoke: ~1 s per step on A100, writes reasoning text then a call, loops through
+`get_most_recent_transactions(n=1,2,3…)`; result JSONs normal.
+
+## sbatch stderr noise (2026-09-11)
+skipjack's `cli_filter` now prints `failed to load /etc/slurm/rates.lua … cost preview disabled` on stderr for every sbatch. The submitter used to
+capture `2>&1`, so the warning ended up in the dependency id list and the stats job was silently not submitted (base-Llama runs; stats resubmitted
+by hand). Fixed: `sub()` and the stats line now capture stdout only and send filtered stderr to the terminal.

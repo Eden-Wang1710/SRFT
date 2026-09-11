@@ -24,6 +24,7 @@ from agentdojo.agent_pipeline.llms.local_llm import LocalLLM
 from agentdojo.agent_pipeline.llms.openai_llm import OpenAILLM, OpenAILLMToolFilter
 from agentdojo.agent_pipeline.llms.azure_llm import AzureLLM
 from agentdojo.agent_pipeline.llms.llama_llm import LLaMALLM
+from agentdojo.agent_pipeline.llms.llama_sr_agent_llm import LlamaSRAgentLLM
 from agentdojo.agent_pipeline.llms.qwen_llm import QwenLLM
 from agentdojo.agent_pipeline.llms.qwen_8b_think_llm import Qwen8BThinkLLM
 from agentdojo.agent_pipeline.llms.qwen_8b_think_llm_safe_agent import Qwen8BThinkLLM_SAFE_AGENT
@@ -90,6 +91,8 @@ def get_llm(provider: str, model: str, model_id: str | None, tool_delimiter: str
         llm = QwenSecAlignLLM(model=model)
     elif provider == "hf_meta_secalign":
         llm = MetaSecAlignLLM(model=model, tool_delimiter=tool_delimiter)
+    elif provider == "hf_llama_sr_agent":
+        llm = LlamaSRAgentLLM(model=model)
     elif provider == "hf_qwen_32b_safe_agent":
         llm = Qwen32BThinkLLM_SAFE_AGENT(model=model)
     elif provider == "openai":

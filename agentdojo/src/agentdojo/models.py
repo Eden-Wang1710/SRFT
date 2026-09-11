@@ -39,6 +39,8 @@ class ModelsEnum(StrEnum):
     """Llama 3"""
     LLAMA_3_1_8B_Instruct = "meta-llama/Llama-3.1-8B-Instruct"
     """Llama 3.1 8B Instruct"""
+    LLAMA_3_1_8B_SAFE_AGENT = "meta-llama/Llama-3.1-8B-Instruct-safe-agent"
+    """SR-Agent on Llama 3.1 8B Instruct (AgentDojo local tool format; no LoRA path -> base model)"""
     META_SECALIGN_8B = "facebook/Meta-SecAlign-8B"
     """Meta SecAlign 8B"""
     QWEN_3_4B_Instruct = "Qwen/Qwen3-4B-Instruct-2507"
@@ -94,6 +96,7 @@ MODEL_PROVIDERS = {
     ModelsEnum.MISTRALAI_MIXTRAL_8X7B_INSTRUCT_V0_1: "together",
     ModelsEnum.LLAMA_3: "together-prompting",
     ModelsEnum.LLAMA_3_1_8B_Instruct: "hf",
+    ModelsEnum.LLAMA_3_1_8B_SAFE_AGENT: "hf_llama_sr_agent",
     ModelsEnum.META_SECALIGN_8B: "hf_meta_secalign",
     ModelsEnum.QWEN_3_4B_Instruct: "hf_qwen",
     ModelsEnum.QWEN_3_8B: "hf_qwen_8b_think",
@@ -133,6 +136,7 @@ MODEL_NAMES = {
     "mistralai/Mixtral-8x7B-Instruct-v0.1": "Mixtral",
     "meta-llama/Llama-3-70b-chat-hf": "AI assistant",
     "meta-llama/Llama-3.1-8B-Instruct": "AI assistant",
+    "meta-llama/Llama-3.1-8B-Instruct-safe-agent": "AI assistant",
     "facebook/Meta-SecAlign-8B": "AI assistant",
     "Qwen/Qwen3-4B-Instruct-2507": "AI assistant",
     "Qwen/Qwen3-8B": "AI assistant",

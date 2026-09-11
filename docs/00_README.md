@@ -22,7 +22,7 @@ Migrated from the old server (DSAI, `/scratch/cxiao13/zixuan/SRFT`) to skipjack 
 | [05_training.md](05_training.md) | LLaMA-Factory env, paper recipe, verified launcher, data-format gotcha, run table |
 | [99_changelog.md](99_changelog.md) | Dated log |
 
-Machine layer: `SRFT/env/` (`local.sh` marker → `skipjack.sh`/`washu.sh`, `sb` submitter, `freeze/`). Code outside docs: `SRFT/data_recovery/` (README + script to fill the missing mid-turn replies from DSAI per-step records).
+Machine layer: `SRFT/env/` (`local.sh` marker → `skipjack.sh`/`washu.sh`, `sb` submitter, `freeze/`). Code outside docs: `SRFT/data_recovery/` (README + script to fill the missing mid-turn replies from DSAI per-step records); `SRFT/multibase/` (other base models: Llama data converter + train/inference render check, 2026-09-11).
 
 Root on skipjack: `/weka/scratch/jhu/cxiao13/zwang544/SRFT/` (also `~/scratch_cxiao13/zwang544/SRFT`); on WashU: `/storage3/fs1/zhang.ning/Active/hao/zixuan/SRFT` (`09_cluster_washu.md`).
 Git: private GitHub repo `SRFT`, branch `main` (since 2026-09-09; the pre-NeurIPS repo was renamed `SRFT-nips-archive`).
