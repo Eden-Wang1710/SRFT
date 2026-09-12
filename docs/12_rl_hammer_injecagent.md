@@ -86,6 +86,10 @@ target sampling T 0.6 / top-p 0.95 / top-k 20, max 512 tokens in training / 1024
    (`injecagent_output_parsing.py` branch; only fires when the tag is present, the Qwen path is unchanged).
 4. Infrastructure only: one vLLM server on the 4th GPU serves both targets (base weights + LoRA alias / a second served name), 4 GPUs per run
    instead of 5; env `rlhammer` (vLLM 0.11.0 as on DSAI).
+**512-token training cap kept on purpose (checked 2026-09-12):** target replies longer than 512 tokens (= cut before the call during attacker
+training, scored as a failed attack) — SR-Agent-Llama 32 % (static default-prompt eval, median 458 / p90 618 tokens) vs SR-Agent-Qwen in the
+NeurIPS YYY1 eval 51 % (median 517; 67 % against the ckpt-102 attacker). The NeurIPS reward already saw truncated SR-Agent-Qwen replies more often,
+so 512 does not favour Llama relative to the published curves; at the 1024 eval cap every SR-Llama reply closed its `</think>`.
 Code: `jobs/train_attacker.sbatch`, `jobs/eval_attacker_ckpts.sbatch`, `jobs/submit_rlh.sh` (train + afterok eval), `jobs/static_eval.sbatch`
 (default InjecAgent injection + replay of the YYY_1 ckpt-1020 prompts, non-adaptive). Results → `outputs/iclr_*` (tracked).
 Launch: `bash injecAgent-rl-harmmer/rl-injector/jobs/submit_rlh.sh <sr_llama|llama_base> <0|1> <RUN_NAME>`.
