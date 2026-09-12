@@ -419,3 +419,10 @@ Caveats to state with the table: Llama runs a different pipeline (AgentDojo `loc
 of its two, so the cross-family rows are indicative rather than matched; the Qwen3-8B SR row is trained on paraphrased thinks (v3-para) while
 Llama and Qwen3-4B use Claude thinks (`toucan_32B_v3_base`) — a v0' run at 8B would remove that confound (user deferred it 2026-09-12);
 single seed everywhere.
+
+**Correction to point 1 (skipjack, 2026-09-12):** "benign cost roughly constant at −7 to −8" holds only for the WITH-append rows. Without the
+append, Δ Benign is Llama **+9.27** (27.84 → 37.11), Qwen3-4B −5.15 (57.73 → 52.58), Qwen3-8B −8.24 (v3-para no-append 52.58 vs base 60.82, both
+at 512 — no 1024 no-append SR row exists at 8B). So the benign effect is also ordered by base competence once the append is removed, and on Llama the
+append alone accounts for −13.4 benign (37.11 → 23.71 on the same checkpoint). The "Without the append" UA line above mixes protocols for the 8B
+(SR at 512 vs base at 1024); the matched 512 pair is v3-para no-append 49.74 vs base 50.47 → −0.73. The user has not yet chosen which Llama row
+(append / no-append) is the headline; both are reported (ledger §L).
