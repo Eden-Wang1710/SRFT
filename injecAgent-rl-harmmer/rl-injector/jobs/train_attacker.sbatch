@@ -44,6 +44,13 @@ echo "cluster=$SRFT_CLUSTER node=$(hostname) job=${SLURM_JOB_ID:-} start=$(date)
 nvidia-smi --query-gpu=index,name,memory.total --format=csv,noheader
 echo "TARGET=$TARGET MAIN=$MAIN SYS_APPEND=$APPEND SR_LORA=${SR_LORA:-} RUN_NAME=$RUN_NAME NGPU=$NGPU NPROC=$NPROC GA=$GA SEED=${SEED:-1024} PORT=$PORT EXTRA_ARGS=${EXTRA_ARGS:-}"
 
+# GPU preflight (2026-09-12): jobs 387056/387058 both died on gh102 with "CUDA-capable device(s) is/are busy or unavailable" on
+# attacker rank 0 after vLLM had already loaded — check every GPU up front so a bad node fails in seconds with a clear message.
+for g in $(seq 0 $((NGPU - 1))); do
+  CUDA_VISIBLE_DEVICES=$g python -c "import torch; torch.zeros(1, device='cuda'); print('GPU $g ok', torch.cuda.get_device_name(0))" \
+    || { echo "GPU $g unusable on $(hostname) - resubmit with SRFT_SBATCH_FLAGS=--exclude=$(hostname -s)" >&2; nvidia-smi >&2; exit 3; }
+done
+
 VLOG="$SRFT_SLURM_LOGS/rlh_vllm_${RUN_NAME}_${SLURM_JOB_ID:-local}.log"
 CUDA_VISIBLE_DEVICES=$((NGPU - 1)) python -m vllm.entrypoints.openai.api_server --model "$BASE" "${SERVE[@]}" \
   --port "$PORT" --max-model-len 8192 --gpu-memory-utilization 0.9 > "$VLOG" 2>&1 &
