@@ -142,6 +142,23 @@ Submit Llama evals with `PARTS=a100,h100,h200`; failed shards resume by resubmit
 since 14:40 (runs before that — `llama31_v3base_local_3epoch` — scored 131 final answers with the reflection inside the answer text). When checking a
 new model's outputs, count reflection-tag variants before trusting utility numbers.
 
+## SR-Agent-Qwen3-4B / base Qwen3-4B (2026-09-11, VERIFIED by smoke 3009742 on WashU)
+`MODEL=QWEN_3_4B_SAFE_AGENT` → `ModelsEnum.QWEN_3_4B_SAFE_AGENT` (`Qwen/Qwen3-4B-safe-agent`), provider `hf_qwen_8b_safe_agent` — the SAME
+pipeline and knobs as the 8B (`LORA_PATH`, `SYS_APPEND`, `THINK_BUDGET`, `QWEN_SAFE_AGENT_*` env); `_infer_base_model_name` strips the
+`-safe-agent` suffix, so the base weights come from `Qwen/Qwen3-4B`. Run subdir `Qwen_Qwen3-4B-safe-agent` (the stats job picks it up from the
+`case "$MODEL"` table in `submit_eval_sdL2.sh`). Registration in `models.py` only, no logic change.
+```bash
+MODEL=QWEN_3_4B_SAFE_AGENT THINK_BUDGET=1024 SYS_APPEND=0 bash agentdojo/scripts/submit_eval_sdL2.sh qwen3_4b_base_think1024_noappend /nonexistent_base_model_fallback
+MODEL=QWEN_3_4B_SAFE_AGENT THINK_BUDGET=1024 SYS_APPEND=1 bash agentdojo/scripts/submit_eval_sdL2.sh qwen3_4b_v3base_traj_3epoch_think1024 $PWD/LLaMA-Factory/saves/qwen3-4b/lora/<run>
+```
+Smoke recipe (30-min partition, 1 shard): submit `scripts/eval_sdL2.sbatch` directly with `-p general-short -t 00:30:00` and
+`--export=ALL,MODEL=QWEN_3_4B_SAFE_AGENT,RUN_LOGDIR=runs/_smoke_q4b,LORA_PATH=/nonexistent_base_model_fallback,NPROC=1,THINK_BUDGET=1024,SYS_APPEND=0,SUITE=banking,ATTACK=important_instructions,INJ=injection_task_0`.
+Check in the proc log: `Using model: 'Qwen/Qwen3-4B-safe-agent'`, `exists: False` for the LoRA path, and **3/3** checkpoint shards (the 4B has 3
+safetensors shards, the 8B has 5) — that is how you confirm the right weights loaded. Base Qwen3-4B on that shard: utility 8/17, attack
+succeeded 10/17, 52 s per trajectory on an H100.
+Dry run before a real submission: `MODEL=QWEN_3_4B_SAFE_AGENT SRFT_SBATCH_FLAGS="--test-only" bash agentdojo/scripts/submit_eval_sdL2.sh <run> <lora>`
+and confirm `MODEL=QWEN_3_4B_SAFE_AGENT` appears in each `--export` and that the stats job path ends in `/Qwen_Qwen3-4B-safe-agent`.
+
 ## sbatch stderr noise (2026-09-11)
 skipjack's `cli_filter` now prints `failed to load /etc/slurm/rates.lua … cost preview disabled` on stderr for every sbatch. The submitter used to
 capture `2>&1`, so the warning ended up in the dependency id list and the stats job was silently not submitted (base-Llama runs; stats resubmitted

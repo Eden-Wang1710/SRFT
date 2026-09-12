@@ -77,6 +77,22 @@ bash env/sb cpu --export=ALL,ENV=agentdojo -J build_agentdojo env/jobs/build_env
 - Env builds: never run two `conda create` jobs at once with the same `CONDA_PKGS_DIRS` (2026-09-06 job 2987716 died with `InvalidArchiveError`);
   chain them with `--dependency=afterany:<id>` as `env/jobs/build_env.sbatch`'s header says.
 
+## Gotcha: IDLE nodes with leaked memory kill every job they get (2026-09-11)
+Symptom: a batch of jobs submitted together all fail after 1–2 s with `State=FAILED ExitCode=0:53`,
+`Reason=RaisedSignal:53(Real-time_signal_19)`, and **no output file at all** (the job dies before the script runs). `sacct` shows they all
+landed on the same node. Seen on 2026-09-11: 19 of 20 eval jobs went to `c2-gpu-010` and died; the one that got another node ran fine.
+Cause: the node is `State=IDLE` with `CPUAlloc=0`, so slurm packs the whole batch onto it, but its real free memory is a fraction of
+`RealMemory` because processes from an earlier job leaked. A job asking for 30–42 GB is killed immediately. `c2-gpu-010` had 21 GB free of
+928 GB, `c2-gpu-008` 87 GB.
+Check before submitting a batch (prints every GPU node that slurm thinks is idle but has < 10 % of its memory free):
+```bash
+for n in $(sinfo -p general-gpu,general-preempt-gpu -N -h -o "%N" | sort -u); do d=$(scontrol show node $n | tr '\n' ' ');
+  ca=$(echo "$d" | grep -oP 'CPUAlloc=\K[0-9]+'); fm=$(echo "$d" | grep -oP 'FreeMem=\K[0-9]+'); rm=$(echo "$d" | grep -oP 'RealMemory=\K[0-9]+')
+  [ -n "$fm" ] && [ "${ca:-1}" = 0 ] && [ "$fm" -lt $((rm/10)) ] && echo "$n IDLE but only ${fm}MB of ${rm}MB free"; done
+```
+Then pass `SRFT_SBATCH_FLAGS="--exclude=<nodes>"` to `submit_eval_sdL2.sh` (it forwards the flag to every job) or `--exclude=` to `env/sb`.
+Partial results are safe: the eval skips finished task JSONs, so cancelling and resubmitting a run costs only the in-flight shard.
+
 ## Queue reality (dated)
 - 2026-09-06 23:45: all `general-gpu` (56/56) and `general-preempt-gpu` (37/40) GPUs allocated, **zero pending jobs** — full of long-running jobs,
   not a deep queue; a new 1-GPU job waits until someone's job ends. `general-short` had free GPUs.
