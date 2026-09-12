@@ -107,13 +107,12 @@ peft 0.15.2; our `sd_gen` env already has vllm 0.9.2). `$HF_HOME` has Qwen3-8B a
 
 ## WashU replicate runs (added 2026-09-12; the NeurIPS curves average 2 runs per target, e.g. YYY_1 / YYY_2)
 Run 1 of each SR-Llama setting is on skipjack (`iclr_rlh_srllama_append`, `iclr_rlh_srllama_noappend`, branch `exp/rlh-sr-llama`).
-Run 2 of each + the Llama-base run go on WashU, on WashU's own branch `exp/rlh-washu` (one cluster per branch; different run names → no file clashes).
+Run 2 of each goes on WashU, on WashU's own branch `exp/rlh-washu` (one cluster per branch; different run names → no file clashes).
 | run (WashU) | command (from `$SRFT_ROOT`, after the setup below) |
 |---|---|
 | SR-Llama + append, run 2 | `SEED=2048 bash injecAgent-rl-harmmer/rl-injector/jobs/submit_rlh.sh sr_llama 1 iclr_rlh_srllama_append_r2` |
 | SR-Llama no append, run 2 | `SEED=2048 bash injecAgent-rl-harmmer/rl-injector/jobs/submit_rlh.sh sr_llama 0 iclr_rlh_srllama_noappend_r2` |
-| Llama base | `bash injecAgent-rl-harmmer/rl-injector/jobs/submit_rlh.sh llama_base 0 iclr_rlh_llama_base` |
-Run 2 uses `SEED=2048` (run 1: 1024, the NeurIPS default) so the replicate is explicitly independent; nothing else differs.
+**Llama base: deferred by the user (2026-09-12) — do NOT submit it for now.** Run 2 uses `SEED=2048` (run 1: 1024, the NeurIPS default) so the replicate is explicitly independent; nothing else differs.
 Setup on WashU (once):
 1. `git pull --rebase` on `main`, then `git checkout -b exp/rlh-washu`.
 2. Env: `bash env/sb cpu --export=ALL,ENV=rlhammer -J build_rlhammer env/jobs/build_env.sbatch` (~7 min; uses `env/freeze/rlhammer.txt`; name `rlhammer`, never touch 学长's `rl-hammer`).
@@ -130,6 +129,6 @@ Setup on WashU (once):
 5. Before submitting, run the leaked-memory idle-node check of `09_cluster_washu.md` and pass bad nodes as `SRFT_SBATCH_FLAGS="--exclude=<nodes>"`.
    `submit_rlh.sh` drops `general-preempt-gpu` by itself (model-only checkpoints cannot resume after a requeue) → jobs go to `general-gpu`, 4 GPUs, 14 h.
    Each run = 1 training job (4×H100, ~6–9 h) + 1 chained eval job (1 GPU, ~1.5 h for 20 checkpoints).
-When the evals finish: commit `injecAgent-rl-harmmer/rl-injector/outputs/iclr_rlh_*_r2_/` and `outputs/iclr_rlh_llama_base_/` + ledger rows
-(`RLH-SRL-append-r2`, `RLH-SRL-noappend-r2`, `RLH-Lbase`) + changelog on `exp/rlh-washu`, push. Never commit `checkpoints/`.
+When the evals finish: commit `injecAgent-rl-harmmer/rl-injector/outputs/iclr_rlh_*_r2_/` + ledger rows
+(`RLH-SRL-append-r2`, `RLH-SRL-noappend-r2`) + changelog on `exp/rlh-washu`, push. Never commit `checkpoints/`.
 Do not change the protocol or code on the branch; a code fix goes to `main` and must be applied on both clusters.
