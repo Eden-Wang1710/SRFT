@@ -20,6 +20,7 @@ Migrated from the old server (DSAI, `/scratch/cxiao13/zixuan/SRFT`) to skipjack 
 | [03_analysis_utility_drop.md](03_analysis_utility_drop.md) | Why SR-Agent loses utility (data + inference evidence) and review of the ICLR self-rewrite plan |
 | [04_self_distill_plan.md](04_self_distill_plan.md) | Concrete self-distillation recipe: per-step prompts, hint ladder, filters, training config |
 | [05_training.md](05_training.md) | LLaMA-Factory env, paper recipe, verified launcher, data-format gotcha, run table |
+| [12_rl_hammer_injecagent.md](12_rl_hammer_injecagent.md) | RL-Hammer adaptive attack on InjecAgent (paper Sec. 5.3): migrated folder, how Fig. 2 was produced, ASR per ckpt, porting to SR-Agent-Llama |
 | [99_changelog.md](99_changelog.md) | Dated log |
 
 Machine layer: `SRFT/env/` (`local.sh` marker → `skipjack.sh`/`washu.sh`, `sb` submitter, `freeze/`). Code outside docs: `SRFT/data_recovery/` (README + script to fill the missing mid-turn replies from DSAI per-step records); `SRFT/multibase/` (other base models: Llama data converter + train/inference render check, 2026-09-11).

@@ -16,6 +16,7 @@ Read `docs/00_README.md` first, then `docs/01_experiments.md` (the experiment le
 - `docs/08_environment.md`            — conda envs, versions (freezes in `env/freeze/`)
 - `docs/09_cluster_skipjack.md`       — Skipjack (JHU) docs links, partitions, quirks; `docs/09_cluster_washu.md` — WashU counterpart
 - `docs/10_sync_workflow.md`          — two-cluster workflow: env layer, `env/sb` submission, git branch rules, HF data/ckpt exchange
+- `docs/12_rl_hammer_injecagent.md`   — RL-Hammer adaptive attack on InjecAgent (paper Sec. 5.3): folder layout, how Fig. 2 was produced, porting to Llama
 - `docs/99_changelog.md`              — dated log of what was done
 
 Rules for Claude:

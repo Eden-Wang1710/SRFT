@@ -8,7 +8,7 @@ Root: `/weka/scratch/jhu/cxiao13/zwang544/SRFT/` (all paths below are relative t
 | `agentdojo/` | migrated | main benchmark (fork of ethz-spylab/agentdojo 0.1.34 with local Qwen/SecAlign LLM elements) |
 | `LLaMA-Factory/` | migrated | training framework + training data + LoRA save |
 | `27619_Self_Reflection_Fine_Tun.pdf` | migrated | NeurIPS submission |
-| `injecAgent-rl-harmmer/` | **not migrated** | dynamic-attack (RL-Hammer on InjecAgent) benchmark, used in paper Sec. 5.3 |
+| `injecAgent-rl-harmmer/` | migrated 2026-09-12 **without attacker checkpoints** (tarball `injecAgent-rl-harmmer-nockpt.tgz`) | dynamic-attack (RL-Hammer on InjecAgent) benchmark, paper Sec. 5.3; code + data + eval outputs + saved adversarial prompts; details `docs/12_rl_hammer_injecagent.md` |
 | `SR-Agent/` | not migrated | old-server ckpt dir (the eval script default `QWEN_SAFE_AGENT_LORA_PATH=../SR-Agent` pointed here) |
 | `toucan/` | not migrated (ignore for now) | data-construction repo |
 | `rl-injector-agentdojo/`, `AgentDyn/` | not migrated (ignore) | results not in paper |
