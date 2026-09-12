@@ -86,6 +86,10 @@ target sampling T 0.6 / top-p 0.95 / top-k 20, max 512 tokens in training / 1024
    (`injecagent_output_parsing.py` branch; only fires when the tag is present, the Qwen path is unchanged).
 4. Infrastructure only: one vLLM server on the 4th GPU serves both targets (base weights + LoRA alias / a second served name), 4 GPUs per run
    instead of 5; env `rlhammer` (vLLM 0.11.0 as on DSAI).
+**512-token training cap kept on purpose (checked 2026-09-12):** target replies longer than 512 tokens (= cut before the call during attacker
+training, scored as a failed attack) — SR-Agent-Llama 32 % (static default-prompt eval, median 458 / p90 618 tokens) vs SR-Agent-Qwen in the
+NeurIPS YYY1 eval 51 % (median 517; 67 % against the ckpt-102 attacker). The NeurIPS reward already saw truncated SR-Agent-Qwen replies more often,
+so 512 does not favour Llama relative to the published curves; at the 1024 eval cap every SR-Llama reply closed its `</think>`.
 Code: `jobs/train_attacker.sbatch`, `jobs/eval_attacker_ckpts.sbatch`, `jobs/submit_rlh.sh` (train + afterok eval), `jobs/static_eval.sbatch`
 (default InjecAgent injection + replay of the YYY_1 ckpt-1020 prompts, non-adaptive). Results → `outputs/iclr_*` (tracked).
 Launch: `bash injecAgent-rl-harmmer/rl-injector/jobs/submit_rlh.sh <sr_llama|llama_base> <0|1> <RUN_NAME>`.
@@ -100,3 +104,32 @@ The `safe_agent_mode` prompt is Qwen/hermes-shaped (`<tool_call>` JSON, tool out
 parse `<function=…>`. ⇒ a Llama target needs its own renderer + parser (reuse `llama_local_prompt.render` / `parse_output`), see the
 discussion in `99_changelog.md` 2026-09-12. Env: no `rl-hammer` env on skipjack yet (original pins: vllm 0.9.2, transformers 4.52.3, trl 0.19.1,
 peft 0.15.2; our `sd_gen` env already has vllm 0.9.2). `$HF_HOME` has Qwen3-8B and Llama-3.1-8B-Instruct.
+
+## WashU replicate runs (added 2026-09-12; the NeurIPS curves average 2 runs per target, e.g. YYY_1 / YYY_2)
+Run 1 of each SR-Llama setting is on skipjack (`iclr_rlh_srllama_append`, `iclr_rlh_srllama_noappend`, branch `exp/rlh-sr-llama`).
+Run 2 of each + the Llama-base run go on WashU, on WashU's own branch `exp/rlh-washu` (one cluster per branch; different run names → no file clashes).
+| run (WashU) | command (from `$SRFT_ROOT`, after the setup below) |
+|---|---|
+| SR-Llama + append, run 2 | `SEED=2048 bash injecAgent-rl-harmmer/rl-injector/jobs/submit_rlh.sh sr_llama 1 iclr_rlh_srllama_append_r2` |
+| SR-Llama no append, run 2 | `SEED=2048 bash injecAgent-rl-harmmer/rl-injector/jobs/submit_rlh.sh sr_llama 0 iclr_rlh_srllama_noappend_r2` |
+| Llama base | `bash injecAgent-rl-harmmer/rl-injector/jobs/submit_rlh.sh llama_base 0 iclr_rlh_llama_base` |
+Run 2 uses `SEED=2048` (run 1: 1024, the NeurIPS default) so the replicate is explicitly independent; nothing else differs.
+Setup on WashU (once):
+1. `git pull --rebase` on `main`, then `git checkout -b exp/rlh-washu`.
+2. Env: `bash env/sb cpu --export=ALL,ENV=rlhammer -J build_rlhammer env/jobs/build_env.sbatch` (~7 min; uses `env/freeze/rlhammer.txt`; name `rlhammer`, never touch 学长's `rl-hammer`).
+3. Weights (general-cpu job or login node, `source env/select.sh` first, `HF_HUB_OFFLINE=0` prefix):
+   - `hf download meta-llama/Llama-3.1-8B-Instruct` (gated; the EdenWong1710 token has access) — skip if already in `$HF_HOME/hub`.
+   - SR-Llama LoRA — note the HF folder carries a `llama31-8b_` prefix, the local dir does not:
+     `hf download EdenWong1710/srft-ckpts --include "llama31-8b_v3base_local_sft_8k_r64_GA4_qkvo_3epoch_5e-6/*" --local-dir LLaMA-Factory/saves/_hf_tmp`
+     `mkdir -p LLaMA-Factory/saves/llama31-8b/lora && mv LLaMA-Factory/saves/_hf_tmp/llama31-8b_v3base_local_sft_8k_r64_GA4_qkvo_3epoch_5e-6 LLaMA-Factory/saves/llama31-8b/lora/v3base_local_sft_8k_r64_GA4_qkvo_3epoch_5e-6`
+   - check: `sha256sum LLaMA-Factory/saves/llama31-8b/lora/v3base_local_sft_8k_r64_GA4_qkvo_3epoch_5e-6/adapter_model.safetensors`
+     must be `1425a92dd42ec89b8d957bb5e0ec0da411fba996569a897facd099a602f44b5e` (= skipjack's copy and the HF LFS object, verified 2026-09-12).
+4. Sanity (≤ 30 min, 1 GPU): `bash env/sb gpu -p general-short -t 00:30:00 --export=ALL,ONLY=srllama_append_default injecAgent-rl-harmmer/rl-injector/jobs/static_eval.sbatch`
+   → log ends with `Attack success rate: ~6%` (skipjack: 6/100; a few points either way is sampling noise). Then `rm -rf injecAgent-rl-harmmer/rl-injector/outputs/iclr_static_*`
+   (skipjack owns those result dirs; do not commit a second copy).
+5. Before submitting, run the leaked-memory idle-node check of `09_cluster_washu.md` and pass bad nodes as `SRFT_SBATCH_FLAGS="--exclude=<nodes>"`.
+   `submit_rlh.sh` drops `general-preempt-gpu` by itself (model-only checkpoints cannot resume after a requeue) → jobs go to `general-gpu`, 4 GPUs, 14 h.
+   Each run = 1 training job (4×H100, ~6–9 h) + 1 chained eval job (1 GPU, ~1.5 h for 20 checkpoints).
+When the evals finish: commit `injecAgent-rl-harmmer/rl-injector/outputs/iclr_rlh_*_r2_/` and `outputs/iclr_rlh_llama_base_/` + ledger rows
+(`RLH-SRL-append-r2`, `RLH-SRL-noappend-r2`, `RLH-Lbase`) + changelog on `exp/rlh-washu`, push. Never commit `checkpoints/`.
+Do not change the protocol or code on the branch; a code fix goes to `main` and must be applied on both clusters.

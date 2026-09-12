@@ -117,3 +117,10 @@ banking/slack/travel/benign stay at 2. A crashed proc only loses its own tasks; 
   error) on STDERR; the job is still submitted. Never capture sbatch's stderr into a job-id variable (`$(sbatch --parsable … 2>&1)`): the warning
   lands in `--dependency=afterany:<ids>` and the dependent job is rejected. Capture stdout only (`submit_eval_sdL2.sh` fixed the same day).
 - QOS (checked 2026-09-09): defined = normal, scavenger, ssci, all, jhu, jsalt_2026, class, conda, rtx6000_condo, condo — ALL with priority 0, so QOS does not affect priority here. Our association (account cxiao13) allows only `class` (default; `all` was removed 2026-09-08 → old `all` jobs went InvalidQOS). Priority = age + fairshare + jobsize; our job 347215 = 7 + 3043 + 16. Other groups' jobs sit at ~18,000 because their FAIRSHARE is higher: account cxiao13 has used 31 % of the cluster's recent GPU-hours (EffectvUsage 0.31, FairShare 0.15, mostly user bsun39). ⇒ we are scheduled almost only by backfill into idle slots: keep requests small (1 GPU, mem = CPUs×6 GB, list every partition) and submit at night.
+
+## Black-hole GPU node gh102 (2026-09-12)
+Jobs landing on `gh102` (h100) die within ~2.5 min with `CUDA error: CUDA-capable device(s) is/are busy or unavailable` on one GPU while the other
+GPUs of the same job work (our RL-Hammer trainings 387056/387058, another user's array 366428_30–37 the same morning). Slurm keeps scheduling onto it
+because it looks free. Check: `sacct -N <node> -S <today> -X -o JobID,User,State,Elapsed | grep FAILED`. Workaround: `--exclude=gh102`
+(`SRFT_SBATCH_FLAGS="--exclude=gh102"` for `submit_eval_sdL2.sh` / `jobs/submit_rlh.sh`); multi-GPU scripts should preflight each GPU
+(`injecAgent-rl-harmmer/rl-injector/jobs/train_attacker.sbatch`). Report to arch@jh.edu if it persists.
