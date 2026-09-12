@@ -49,3 +49,10 @@ Results (2026-09-09): agentdojo 3002999 (11 min) pip check clean + pytest 21 pas
 - The 2026-09-07 archive builds (`../SRFT-archive/tools/envs/build_*.sbatch`) were replaced: they pinned only the key packages and their editable
   installs pointed at the old path.
 - click stays 8.1.8 (from the freeze): click ≥ 8.2 breaks `benchmark.py --model Qwen/Qwen3-8B-safe-agent` (Enum Choice matches NAMES not VALUES).
+
+## conda env `rlhammer` (RL-Hammer / InjecAgent, built on skipjack 2026-09-12, job 387025, 7 min)
+- For `injecAgent-rl-harmmer/rl-injector` (docs/12). Python 3.12 · torch 2.8.0+cu128 · **vllm 0.11.0** (= the DSAI RL-Hammer runs, per their vLLM
+  logs) · transformers 4.57.0 · trl 0.23.1 · peft 0.17.1 · accelerate 1.10.1 · openai 1.99.9 · ray 2.58.0; `pip check` clean. Freeze `env/freeze/rlhammer.txt`.
+- Build (either cluster): `bash env/sb cpu --export=ALL,ENV=rlhammer -J build_rlhammer env/jobs/build_env.sbatch` (uses the freeze; falls back to
+  rl-injector's `requirements.txt` + ray when no freeze exists). Named `rlhammer`, not `rl-hammer`: WashU's shared miniconda already holds 学长's `rl-hammer`.
+- No flash-attn (the jobs use `--attn_implementation sdpa`, as the NeurIPS runs did).
