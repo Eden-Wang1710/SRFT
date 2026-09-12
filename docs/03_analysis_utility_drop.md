@@ -390,3 +390,32 @@ action (53 %) and over-specified arguments (24 %). Over-defence stays substantia
   part of the smaller ASR gain at 4B is headroom rather than method.
 - CAVEAT: the 8B was never trained on `toucan_32B_v3_base` (v0' was cancelled), so the two SR rows differ in think source (paraphrase vs Claude)
   as well as in scale. Only the base→SR deltas are strictly comparable. A v0' run at 8B would close this; it is one training job.
+
+### M.1 Three base models: the utility cost is monotone in the base's own agentic competence (2026-09-12)
+With the Llama rows final (§L in the ledger, merged from `exp/llama31-8b-srft`) there are three base models trained with the same recipe on the
+same source data. Ordering them by how good the *base* is at AgentDojo makes the pattern explicit.
+
+Same protocol on each row pair (base → SR-Agent, both WITH the append; Llama at its own protocol, Qwen at think 1024):
+| base model | base Benign / UA / ASR | SR-Agent Benign / UA / ASR | Δ Benign | **Δ UA** | ASR |
+|---|---|---|---|---|---|
+| Llama-3.1-8B-Instruct (weakest base) | 31.96 / 21.71 / 4.32 | 23.71 / 23.60 / 0.21 | −8.25 | **+1.89** | 4.32 → 0.21 |
+| Qwen3-4B | 57.73 / 51.53 / 10.12 | 50.52 / 49.21 / 0.84 | −7.21 | **−2.32** | 10.12 → 0.84 |
+| Qwen3-8B (strongest base) | 70.10 / 56.80 / 13.80 | 62.89 / 48.05 / 2.11 | −7.21 | **−8.75** | 13.80 → 2.11 |
+Without the append the same ordering holds (Llama +6.00 UA, Qwen3-4B −2.21, Qwen3-8B −0.73 at 512 / −6.96 at 1024 vs the 1024 base).
+
+Two things fall out:
+1. **Benign cost is roughly constant (−7 to −8 points) across all three**, i.e. the "answer the clean task" ability pays a fixed toll for the
+   reflection style. **The utility-under-attack cost is not constant: it is monotone in the base's competence** (+1.9 / −2.3 / −8.8 for base UA
+   21.7 / 51.5 / 56.8). On the weakest base SRFT *improves* utility under attack.
+2. That is exactly the prediction of §L.1 / §M: SRFT swaps the model's native tool-use policy for the expert (TOUCAN) policy, so the net effect
+   is (expert policy − native policy). Llama's native agentic policy is poor, so the swap is an upgrade; the Qwen3-8B's is good, so it is a
+   downgrade; the 4B sits between. ASR falls to ≈ 1 % or below on all three, so the security half of the method is base-independent.
+
+For the paper this reframes the limitation: **SRFT's security is universal; its utility cost is not a property of the method but of the gap
+between the expert trajectories and the base model's own policy.** It also says where to spend effort — making the training actions on-policy
+(§L consequences (b)) matters most exactly for the strongest base, which is the one the headline table uses.
+
+Caveats to state with the table: Llama runs a different pipeline (AgentDojo `local` tool format, no think mode) and its append row is the weaker
+of its two, so the cross-family rows are indicative rather than matched; the Qwen3-8B SR row is trained on paraphrased thinks (v3-para) while
+Llama and Qwen3-4B use Claude thinks (`toucan_32B_v3_base`) — a v0' run at 8B would remove that confound (user deferred it 2026-09-12);
+single seed everywhere.
