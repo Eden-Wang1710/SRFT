@@ -92,6 +92,14 @@ for n in $(sinfo -p general-gpu,general-preempt-gpu -N -h -o "%N" | sort -u); do
 ```
 Then pass `SRFT_SBATCH_FLAGS="--exclude=<nodes>"` to `submit_eval_sdL2.sh` (it forwards the flag to every job) or `--exclude=` to `env/sb`.
 Partial results are safe: the eval skips finished task JSONs, so cancelling and resubmitting a run costs only the in-flight shard.
+**Update 2026-09-13 — the FreeMem check is necessary but NOT sufficient; keep a standing denylist.** A 4-GPU job (3029362) was killed the
+same way on `c2-gpu-010` at a moment when that node reported **147 GB free**, comfortably above the 96 GB it asked for, and the submit-time
+check had returned a clean list. Two reasons the check races: node state changes between submission and dispatch, and `FreeMem` evidently does
+not capture whatever actually kills these jobs. Known offenders so far: **`c2-gpu-004`** (DOWN+DRAIN), **`c2-gpu-005`**, **`c2-gpu-006`**,
+**`c2-gpu-010`** — `c2-gpu-010` has done it twice (19 eval jobs on 09-11, one training job on 09-13). Pass the whole list every time:
+`SRFT_SBATCH_FLAGS="--exclude=c2-gpu-004,c2-gpu-005,c2-gpu-006,c2-gpu-010"` (kept in `slurm_logs/.rlh_denylist`), and add a node to it the
+first time it produces an `ExitCode 0:53 / RaisedSignal:53` with no output file. Re-run the FreeMem scan as well — it catches new offenders —
+but never rely on it alone.
 
 ## Queue reality (dated)
 - 2026-09-06 23:45: all `general-gpu` (56/56) and `general-preempt-gpu` (37/40) GPUs allocated, **zero pending jobs** — full of long-running jobs,
