@@ -62,10 +62,25 @@ def main(grpo_config, model_config):
     else:
         grpo_config.model_init_kwargs["attn_implementation"] = "flash_attention_2"
 
+    model = grpo_config.attacker_model_name_or_path
+    if grpo_config.init_adapter_path:
+        # SRFT 2026-09-14: resume the attacker's LoRA weights (e.g. from a run that hit its time limit). Checkpoints were saved
+        # model-only, so this restores the policy but not Adam state / LR-scheduler / RNG; see docs/12 "continuation".
+        import torch
+        from peft import PeftModel
+        from transformers import AutoModelForCausalLM
+
+        base = AutoModelForCausalLM.from_pretrained(model, **grpo_config.model_init_kwargs)
+        model = PeftModel.from_pretrained(base, grpo_config.init_adapter_path, is_trainable=True)
+        peft_config = None  # the adapter already defines the LoRA (r / alpha / target modules)
+        n_train = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        b_abs = sum(p.detach().abs().sum().item() for n, p in model.named_parameters() if "lora_B" in n)
+        print(f"[init_adapter] loaded {grpo_config.init_adapter_path}: trainable params {n_train:,}, sum|lora_B| {b_abs:.3f} (0 would mean a fresh LoRA)")
+
     # Initialize and run trainer
     trainer = GRPOTrainer(
         args=grpo_config,
-        model=grpo_config.attacker_model_name_or_path,
+        model=model,
         peft_config=peft_config,
         reward_funcs=reward_functions,
         train_dataset=train_set,

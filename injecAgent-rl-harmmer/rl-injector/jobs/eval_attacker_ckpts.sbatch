@@ -7,7 +7,7 @@
 # Evaluate every attacker checkpoint of one RL-Hammer run on InjecAgent test.json (100 cases) against the SAME target config it was
 # trained on (docs/12). Cluster-neutral; normally chained after the training job by jobs/submit_rlh.sh. Restart-safe: checkpoints whose
 # result JSON exists are skipped. As NeurIPS: val_max_new_tokens 1024, target T 0.6 / top-p 0.95 / top-k 20 (config defaults).
-# --export: TARGET=sr_llama|llama_base, SYS_APPEND=0|1, RUN_NAME, SR_LORA (sr_llama), [VAL_BATCH_SIZE=16], [CKPT_DIR=checkpoints/$RUN_NAME]
+# --export: TARGET=sr_llama|llama_base, SYS_APPEND=0|1, RUN_NAME, SR_LORA (sr_llama), [VAL_BATCH_SIZE=16], [CKPT_DIR=checkpoints/$RUN_NAME], [CKPT_OFFSET=0]
 # Output: outputs/<RUN_NAME>_/<RUN_NAME>_attack_<ckpt>/<ckpt>-lora.json + attack_success_rate.json (tracked in git for outputs/iclr_*)
 set -euo pipefail
 SRFT_ROOT="${SRFT_ROOT:-$(d="${SLURM_SUBMIT_DIR:-$PWD}"; while [ ! -f "$d/env/select.sh" ] && [ "$d" != / ]; do d=$(dirname "$d"); done; echo "$d")}"
@@ -34,6 +34,8 @@ mapfile -t CKPTS < <(find "$CKPT_DIR" -maxdepth 1 -mindepth 1 -type d -name 'che
 for c in "${CKPTS[@]}"; do
   name=$(basename "$c")
   [ -f "$c/adapter_model.safetensors" ] || { echo "skip non-LoRA $c"; continue; }
+  # CKPT_OFFSET (2026-09-14): a continuation run's checkpoint-k is reported as checkpoint-(k+offset) of the original run
+  step=${name#checkpoint-}; name="checkpoint-$((step + ${CKPT_OFFSET:-0}))"
   run="${RUN_NAME}_attack_${name}"
   out="outputs/${RUN_NAME}_/${run}/${name}-lora.json"
   [ -f "$out" ] && { echo "done already: $out"; continue; }
