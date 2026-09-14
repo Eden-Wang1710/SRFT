@@ -175,3 +175,27 @@ WashU steps (from `$SRFT_ROOT`, branch `exp/rlh-washu` after `git merge main`; `
    run), so the two branches merge without conflicts into one 51 → 1020 series. Do not upload/commit `checkpoints/`.
    Fix 2026-09-14: the first WashU smoke failed at the first backward (`element 0 of tensors does not require grad`) — `train.py` now calls
    `model.enable_input_require_grads()` after loading the adapter; re-run the 2-step smoke before the real run.
+
+## ⚠ Variance caveat: a flat RL-Hammer curve does not measure robustness (WashU, 2026-09-13)
+Additive note, no protocol or code change. Recorded because it changes how the Fig. 2 curves may be described.
+**Observation.** The two WashU replicates (same target checkpoint, same data, same hyper-parameters, SEED 2048, differing only in the
+inference-time system append) diverged completely: append ASR 2 → 64 % over 20 epochs, no-append **flat 1–7 %** for all 20. The user reports the
+same instability from the NeurIPS experiments: *"RL-Hammer 每次训练波动性特别大，有时候就一直个位数 ASR，有的时候会上升很多"* — i.e. runs
+either find an attack or never do, and which happens is not determined by the target.
+**Test that settles what the divergence means** (job 3027773, 5 min on one GPU; `injecagent_eval.py` already replays
+`saved_adv_prompts/<attacker ckpt>/<val set>/<save_name>.json`, so no new code):
+| replayed prompts | target | ASR | target emits a call |
+|---|---|---|---|
+| append run, ckpt-1020 | append (control) | 62 % | 91 % |
+| append run, ckpt-1020 | **no-append** | **51 %** | 75 % |
+The no-append target — whose own attacker never exceeded 7 % in 20 epochs — is broken at 51 % by the sibling run's prompts. So the 54-vs-3
+gap between the two curves is mostly **whether that attacker's GRPO search found the strategy** (here: massive repetition of the injected
+instruction; duplicate-sentence ratio 0.00 → 0.65, injection length 251 → 2,256 chars), not a property of the target. The append itself is worth
+about 11 points (62 vs 51), second order.
+**Attacker-side signature of a run that never breaks through:** mean reward flat at the format-reward floor (no-append: 0.17 → 0.32 by 40 % of
+training and unchanged after; append: 0.16 → 1.34 with the take-off at the 40–60 % mark), and the attacker's prompts *shrink* (242 → 152 chars).
+Reading the reward curve is a 10-second way to tell a stuck run from a real one, much faster than waiting for the eval.
+**Consequence for any claim made from these curves.** A single run's flat curve says "this attacker did not find an attack", not "the target is
+robust". Before a Fig. 2 claim of the form "SR-Agent resists adaptive attacks", run the **transfer matrix**: every run's best attacker checkpoint
+replayed against every target, report the max per target. The prompts are already saved per checkpoint, so the whole matrix costs minutes.
+This applies to the published Qwen curves as well, which were never transfer-tested.
