@@ -132,3 +132,9 @@ Setup on WashU (once):
 When the evals finish: commit `injecAgent-rl-harmmer/rl-injector/outputs/iclr_rlh_*_r2_/` + ledger rows
 (`RLH-SRL-append-r2`, `RLH-SRL-noappend-r2`) + changelog on `exp/rlh-washu`, push. Never commit `checkpoints/`.
 Do not change the protocol or code on the branch; a code fix goes to `main` and must be applied on both clusters.
+
+**Lesson (2026-09-13):** never create `checkpoint-*` entries inside a trainer's output dir while it trains. The eval used to put `checkpoint-N-lora`
+symlinks next to the checkpoints; an interim eval during training made the trainer's `save_total_limit=20` rotation count them and delete the
+real ckpts 51–204 of `iclr_rlh_srllama_noappend` (results were already written). `jobs/eval_attacker_ckpts.sbatch` now links into
+`checkpoints/<run>_lora_links/`; output names are unchanged (`checkpoint-N-lora.json`).
+
