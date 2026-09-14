@@ -72,6 +72,9 @@ def main(grpo_config, model_config):
 
         base = AutoModelForCausalLM.from_pretrained(model, **grpo_config.model_init_kwargs)
         model = PeftModel.from_pretrained(base, grpo_config.init_adapter_path, is_trainable=True)
+        # With a ready PeftModel + gradient checkpointing, TRL does not make the (frozen) embedding output require grad, so the first
+        # backward failed on WashU ("element 0 of tensors does not require grad", 2026-09-14). The from-scratch path is unaffected.
+        model.enable_input_require_grads()
         peft_config = None  # the adapter already defines the LoRA (r / alpha / target modules)
         n_train = sum(p.numel() for p in model.parameters() if p.requires_grad)
         b_abs = sum(p.detach().abs().sum().item() for n, p in model.named_parameters() if "lora_B" in n)

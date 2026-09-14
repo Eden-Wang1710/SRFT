@@ -161,9 +161,9 @@ WashU steps (from `$SRFT_ROOT`, branch `exp/rlh-washu` after `git merge main`; `
    `mkdir -p injecAgent-rl-harmmer/rl-injector/checkpoints/iclr_rlh_srllama_noappend && mv injecAgent-rl-harmmer/rl-injector/checkpoints/_hf_tmp/rlh-attackers/iclr_rlh_srllama_noappend/checkpoint-765 injecAgent-rl-harmmer/rl-injector/checkpoints/iclr_rlh_srllama_noappend/`
    `sha256sum injecAgent-rl-harmmer/rl-injector/checkpoints/iclr_rlh_srllama_noappend/checkpoint-765/adapter_model.safetensors` → must equal the hash above.
 2. Variables: `L=$PWD/LLaMA-Factory/saves/llama31-8b/lora/v3base_local_sft_8k_r64_GA4_qkvo_3epoch_5e-6; A=$PWD/injecAgent-rl-harmmer/rl-injector/checkpoints/iclr_rlh_srllama_noappend/checkpoint-765; J=injecAgent-rl-harmmer/rl-injector/jobs`
-3. Smoke (general-short, ≤ 30 min, 2 GPUs):
-   `bash env/sb gpu -p general-short -t 00:30:00 --gres=gpu:2 -c 8 --mem=48G -J rlh_smoke_cont --export=ALL,TARGET=sr_llama,SYS_APPEND=0,RUN_NAME=iclr_smoke_cont,SR_LORA=$L,SEED=1024,EXTRA_ARGS="--init_adapter_path $A --num_train_epochs 5 --warmup_ratio 0.0 --max_steps 2 --save_strategy steps --save_steps 2" $J/train_attacker.sbatch`
-   then (afterok on it) `bash env/sb gpu -p general-short -t 00:30:00 -J rlh_smoke_cont_eval --dependency=afterok:<id> --export=ALL,TARGET=sr_llama,SYS_APPEND=0,RUN_NAME=iclr_smoke_cont,SR_LORA=$L,CKPT_DIR=checkpoints/iclr_smoke_cont,CKPT_OFFSET=765 $J/eval_attacker_ckpts.sbatch`
+3. Smoke (2 GPUs, ≤ 30 min; **general-gpu**, not general-short — WashU's general-short QoS allows 1 GPU per user):
+   `bash env/sb gpu -p general-gpu -t 00:30:00 --gres=gpu:2 -c 8 --mem=48G -J rlh_smoke_cont --export=ALL,TARGET=sr_llama,SYS_APPEND=0,RUN_NAME=iclr_smoke_cont,SR_LORA=$L,SEED=1024,EXTRA_ARGS="--init_adapter_path $A --num_train_epochs 5 --warmup_ratio 0.0 --max_steps 2 --save_strategy steps --save_steps 2" $J/train_attacker.sbatch`
+   then (afterok on it; 1 GPU, general-short is fine) `bash env/sb gpu -p general-short -t 00:30:00 -J rlh_smoke_cont_eval --dependency=afterok:<id> --export=ALL,TARGET=sr_llama,SYS_APPEND=0,RUN_NAME=iclr_smoke_cont,SR_LORA=$L,CKPT_DIR=checkpoints/iclr_smoke_cont,CKPT_OFFSET=765 $J/eval_attacker_ckpts.sbatch`
    Pass criteria: log line `[init_adapter] loaded … trainable params 167,772,160, sum|lora_B| <non-zero>`; first-step `'reward'` ≈ 1 (resume point 0.95; a fresh attacker starts ≈ 0.15);
    eval writes `outputs/iclr_smoke_cont_/iclr_smoke_cont_attack_checkpoint-767/checkpoint-767-lora.json`. Then `rm -rf` the `iclr_smoke_cont*` outputs and checkpoints.
 4. Real run (`-p general-gpu` explicitly — no preempt partition; add the standing denylist `--exclude=$(cat slurm_logs/.rlh_denylist)`):
@@ -173,6 +173,8 @@ WashU steps (from `$SRFT_ROOT`, branch `exp/rlh-washu` after `git merge main`; `
 5. Commit `injecAgent-rl-harmmer/rl-injector/outputs/iclr_rlh_srllama_noappend_/iclr_rlh_srllama_noappend_attack_checkpoint-{816,867,918,969,1020}/`
    + a ledger note on `exp/rlh-washu`. These 5 dirs do not exist on skipjack's `exp/rlh-sr-llama` (which holds ckpt 51–765 of the same
    run), so the two branches merge without conflicts into one 51 → 1020 series. Do not upload/commit `checkpoints/`.
+   Fix 2026-09-14: the first WashU smoke failed at the first backward (`element 0 of tensors does not require grad`) — `train.py` now calls
+   `model.enable_input_require_grads()` after loading the adapter; re-run the 2-step smoke before the real run.
 
 ## ⚠ Variance caveat: a flat RL-Hammer curve does not measure robustness (WashU, 2026-09-13)
 Additive note, no protocol or code change. Recorded because it changes how the Fig. 2 curves may be described.
