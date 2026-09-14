@@ -32,10 +32,12 @@ case "$TASK" in
   *)               NS=${SHOTS:-0} ;;
 esac
 OUT="$SRFT_ROOT/eval_general/$TAG/$TASK"
-mkdir -p "$OUT"
+CACHE="$SRFT_ROOT/eval_general/.cache/$TAG"          # request-level cache: a killed run resumes instead of restarting
+mkdir -p "$OUT" "$CACHE"
 echo "cluster=$SRFT_CLUSTER node=$(hostname) gpu=$(nvidia-smi --query-gpu=name --format=csv,noheader) start=$(date)"
 echo "TAG=$TAG TASK=$TASK shots=$NS args=$ARGS"
 lm_eval --model hf --model_args "$ARGS" --tasks "$TASK" --num_fewshot "$NS" \
   --batch_size auto --device cuda:0 --output_path "$OUT" --seed 1234 \
+  --use_cache "$CACHE/$TASK" --cache_requests true \
   ${LIMIT:+--limit $LIMIT}
 echo "end=$(date)"

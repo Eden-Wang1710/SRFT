@@ -120,3 +120,22 @@ but never rely on it alone.
 | GPU smoke | `bash env/sb gpu -p general-short env/jobs/gpu_smoke.sbatch` (3003057) | H100 80GB HBM3, driver 580.105.08, cuda OK, bf16 matmul 32 TFLOPS, SMOKE_OK, 25 s wall |
 | eval shard | `bash env/sb gpu -p general-short -t 00:30:00 -J eval_smoke_bank --export=ALL,RUN_LOGDIR=runs/_smoke_washu_v0_bank_inj0,LORA_PATH=<abs paper LoRA>,NPROC=1,SUITE=banking,ATTACK=important_instructions,INJ=injection_task_0 agentdojo/scripts/eval_sdL2.sbatch` (3003059) | 16/16 banking trajectories in 16 min, 0 errors; utility 8/16 vs paper run 6/16 on the same files, attack success 1 vs 0 (T=0.6 sampling noise, same as the 2026-09-07 smoke). Output deleted afterwards (throwaway) |
 Not yet done here: a training smoke (`05_training.md` has the general-short recipe) and porting the archive launcher's auto-resume into `main`'s train script.
+
+## Gotcha: `scontrol update TimeLimit` is one-way for a normal user (2026-09-14)
+Shortening a pending job's time limit is allowed and is the single most effective way to get scheduled when the account's
+fairshare is exhausted — on 2026-09-14 eight 1-GPU jobs sat at `Priority=1` with an estimated start 24 h out; cutting
+`-t 12:00:00` down to 2–6 h got seven of them running within a minute, because backfill can only use a job that fits the
+gap before the next reservation. **But the change cannot be undone:** `scontrol update jobid=<id> TimeLimit=<longer>`
+returns `Access/permission denied for job <id>` for a non-operator, whether the job is pending or running. So a limit cut
+too close to the real runtime is a death sentence — the job is killed at the limit and, without a request cache, all of
+its progress is lost.
+Rules that follow:
+- Estimate from a real measurement, then **give it 2–3×**. Progress-bar ETAs early in a run are unreliable and usually
+  optimistic; several jobs sharing one GPU (slurm packs them) can triple the wall time.
+- For anything long, always enable a resume path before submitting. For lm-eval-harness that is
+  `--use_cache <dir> --cache_requests true` (wired into `env/jobs/lmeval.sbatch`): a killed run re-runs only the requests
+  that were not already cached.
+- Check the account's standing with `sshare -U -u $USER`. On 2026-09-14 `EffectvUsage=1.000000`, `FairShare=0.054` after
+  the RL-Hammer runs (~240 GPU-hours in two days), which pins every new job at `Priority=1`.
+- `squeue`/`sprio` show only our own jobs here, so "free GPUs and no queue" is an illusion — idle nodes marked `PLANNED`
+  are reserved for other users' pending jobs you cannot see.
