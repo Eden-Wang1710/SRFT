@@ -37,10 +37,13 @@ for c in "${CKPTS[@]}"; do
   run="${RUN_NAME}_attack_${name}"
   out="outputs/${RUN_NAME}_/${run}/${name}-lora.json"
   [ -f "$out" ] && { echo "done already: $out"; continue; }
-  ln -sfn "$name" "$CKPT_DIR/${name}-lora"          # "lora" in the path makes injecagent_eval load it as an adapter
+  # "lora" in the path makes injecagent_eval load it as an adapter. The link lives OUTSIDE the checkpoint dir: 2026-09-13 links named
+  # checkpoint-N-lora inside a live training dir were counted by the trainer's save_total_limit rotation, which then deleted real ckpts.
+  LINKDIR="${CKPT_DIR%/}_lora_links"; mkdir -p "$LINKDIR"
+  ln -sfn "$(realpath "$c")" "$LINKDIR/${name}-lora"
   echo "=== $name $(date)"
   python injecagent_eval.py \
-    --attacker_model_name_or_path "$CKPT_DIR/${name}-lora" \
+    --attacker_model_name_or_path "$LINKDIR/${name}-lora" \
     --attacker_base_model_name_or_path "$BASE" \
     --target_model_name_or_path "$TGT" \
     --target_base_model_name_or_path "$BASE" \
