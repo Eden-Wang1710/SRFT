@@ -150,3 +150,26 @@ To complete the curve the attacker is continued from `checkpoints/iclr_rlh_srlla
 - Training dir `checkpoints/iclr_rlh_srllama_noappend_cont765/`; eval with `CKPT_OFFSET=765` writes its checkpoint-51…255 as
   checkpoint-816…1020 into the original result dir `outputs/iclr_rlh_srllama_noappend_/`, so the run-1 curve is one series 51 → 1020.
 - Jobs: smoke 407924 → 407925 (2 steps, throwaway `iclr_smoke_cont`); real train 407926 (4 GPU, 10 h) → eval 407927 (afterany).
+
+### Continuation moved to WashU (2026-09-14, user: skipjack's queue is too slow)
+skipjack's continuation jobs 407924–407927 were cancelled before starting. The step-765 attacker is on HF:
+`EdenWong1710/srft-ckpts/rlh-attackers/iclr_rlh_srllama_noappend/checkpoint-765/` — `adapter_model.safetensors` sha256
+`58b1bccb29d9c2c40714c948d230495423c72c477e6c7df8d3e0ce5122443afb`, 671,149,168 bytes (fp32 LoRA r64 on 7 modules = 167,772,160 params).
+WashU steps (from `$SRFT_ROOT`, branch `exp/rlh-washu` after `git merge main`; `source env/select.sh`):
+1. Download + place + verify:
+   `HF_HUB_OFFLINE=0 hf download EdenWong1710/srft-ckpts --include "rlh-attackers/iclr_rlh_srllama_noappend/checkpoint-765/*" --local-dir injecAgent-rl-harmmer/rl-injector/checkpoints/_hf_tmp`
+   `mkdir -p injecAgent-rl-harmmer/rl-injector/checkpoints/iclr_rlh_srllama_noappend && mv injecAgent-rl-harmmer/rl-injector/checkpoints/_hf_tmp/rlh-attackers/iclr_rlh_srllama_noappend/checkpoint-765 injecAgent-rl-harmmer/rl-injector/checkpoints/iclr_rlh_srllama_noappend/`
+   `sha256sum injecAgent-rl-harmmer/rl-injector/checkpoints/iclr_rlh_srllama_noappend/checkpoint-765/adapter_model.safetensors` → must equal the hash above.
+2. Variables: `L=$PWD/LLaMA-Factory/saves/llama31-8b/lora/v3base_local_sft_8k_r64_GA4_qkvo_3epoch_5e-6; A=$PWD/injecAgent-rl-harmmer/rl-injector/checkpoints/iclr_rlh_srllama_noappend/checkpoint-765; J=injecAgent-rl-harmmer/rl-injector/jobs`
+3. Smoke (general-short, ≤ 30 min, 2 GPUs):
+   `bash env/sb gpu -p general-short -t 00:30:00 --gres=gpu:2 -c 8 --mem=48G -J rlh_smoke_cont --export=ALL,TARGET=sr_llama,SYS_APPEND=0,RUN_NAME=iclr_smoke_cont,SR_LORA=$L,SEED=1024,EXTRA_ARGS="--init_adapter_path $A --num_train_epochs 5 --warmup_ratio 0.0 --max_steps 2 --save_strategy steps --save_steps 2" $J/train_attacker.sbatch`
+   then (afterok on it) `bash env/sb gpu -p general-short -t 00:30:00 -J rlh_smoke_cont_eval --dependency=afterok:<id> --export=ALL,TARGET=sr_llama,SYS_APPEND=0,RUN_NAME=iclr_smoke_cont,SR_LORA=$L,CKPT_DIR=checkpoints/iclr_smoke_cont,CKPT_OFFSET=765 $J/eval_attacker_ckpts.sbatch`
+   Pass criteria: log line `[init_adapter] loaded … trainable params 167,772,160, sum|lora_B| <non-zero>`; first-step `'reward'` ≈ 1 (resume point 0.95; a fresh attacker starts ≈ 0.15);
+   eval writes `outputs/iclr_smoke_cont_/iclr_smoke_cont_attack_checkpoint-767/checkpoint-767-lora.json`. Then `rm -rf` the `iclr_smoke_cont*` outputs and checkpoints.
+4. Real run (`-p general-gpu` explicitly — no preempt partition; add the standing denylist `--exclude=$(cat slurm_logs/.rlh_denylist)`):
+   `tr=$(bash env/sb gpu --parsable -p general-gpu --exclude=$(cat slurm_logs/.rlh_denylist) --gres=gpu:4 -c 16 --mem=96G -t 10:00:00 -J rlh_train_iclr_rlh_srllama_noappend_cont765 --export=ALL,TARGET=sr_llama,SYS_APPEND=0,RUN_NAME=iclr_rlh_srllama_noappend_cont765,SR_LORA=$L,SEED=1024,EXTRA_ARGS="--init_adapter_path $A --num_train_epochs 5 --warmup_ratio 0.0" $J/train_attacker.sbatch)`
+   `bash env/sb gpu -p general-gpu --exclude=$(cat slurm_logs/.rlh_denylist) -t 04:00:00 -J rlh_eval_iclr_rlh_srllama_noappend_cont765 --dependency=afterany:$tr --export=ALL,TARGET=sr_llama,SYS_APPEND=0,RUN_NAME=iclr_rlh_srllama_noappend,SR_LORA=$L,CKPT_DIR=checkpoints/iclr_rlh_srllama_noappend_cont765,CKPT_OFFSET=765 $J/eval_attacker_ckpts.sbatch`
+   255 steps ≈ 3–6 h on H100. Health: `grad_norm` never 0, entropy < 3 (the base-r2 collapse signature).
+5. Commit `injecAgent-rl-harmmer/rl-injector/outputs/iclr_rlh_srllama_noappend_/iclr_rlh_srllama_noappend_attack_checkpoint-{816,867,918,969,1020}/`
+   + a ledger note on `exp/rlh-washu`. These 5 dirs do not exist on skipjack's `exp/rlh-sr-llama` (which holds ckpt 51–765 of the same
+   run), so the two branches merge without conflicts into one 51 → 1020 series. Do not upload/commit `checkpoints/`.
