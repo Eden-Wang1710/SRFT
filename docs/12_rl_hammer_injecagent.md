@@ -138,3 +138,15 @@ symlinks next to the checkpoints; an interim eval during training made the train
 real ckpts 51–204 of `iclr_rlh_srllama_noappend` (results were already written). `jobs/eval_attacker_ckpts.sbatch` now links into
 `checkpoints/<run>_lora_links/`; output names are unchanged (`checkpoint-N-lora.json`).
 
+
+## Continuation of `iclr_rlh_srllama_noappend` (run 1) from ckpt-765 (user decision 2026-09-14)
+The original training (389094) hit its 14 h limit at step 791/1020 (the no-append attacker's prompts grew to ~600 tokens → 66–92 s/step on A100).
+To complete the curve the attacker is continued from `checkpoints/iclr_rlh_srllama_noappend/checkpoint-765`:
+- `train.py --init_adapter_path <ckpt-765>` loads Llama-3.1-8B-Instruct + that LoRA as a trainable `PeftModel` (same r64/α32/7 modules);
+  `--num_train_epochs 5 --warmup_ratio 0.0` → 255 steps at the constant 1e-5 the original schedule had reached; seed 1024; everything else unchanged.
+- **Deviation (write it in the paper/appendix):** checkpoints were saved model-only, so Adam moments, LR-scheduler and RNG state restart at
+  step 765, and the dataloader order of the 5 continuation epochs equals epochs 1–5 of the original run, not epochs 16–20. The policy itself
+  is exactly the step-765 attacker. Health at the resume point (old log, steps 715–765): reward 0.95, max entropy 0.12, max grad_norm 0.23.
+- Training dir `checkpoints/iclr_rlh_srllama_noappend_cont765/`; eval with `CKPT_OFFSET=765` writes its checkpoint-51…255 as
+  checkpoint-816…1020 into the original result dir `outputs/iclr_rlh_srllama_noappend_/`, so the run-1 curve is one series 51 → 1020.
+- Jobs: smoke 407924 → 407925 (2 steps, throwaway `iclr_smoke_cont`); real train 407926 (4 GPU, 10 h) → eval 407927 (afterany).

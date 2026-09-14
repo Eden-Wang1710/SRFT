@@ -25,6 +25,8 @@ class LocalGRPOConfig(GRPOConfig):
     # SRFT 2026-09-12: "qwen" = NeurIPS safe-agent prompt (Qwen chat template, JSON tool call); "llama_local" = AgentDojo `local`
     # format that SR-Agent-Llama was trained on (llama_target.py; append goes into the system prompt)
     safe_agent_prompt_format: str = field(default="qwen")
+    # SRFT 2026-09-14: continue an attacker from a saved LoRA (checkpoints are model-only, so optimizer state starts fresh)
+    init_adapter_path: Optional[str] = field(default=None)
     target_enable_thinking: bool = field(default=True)
     use_safe_agent_system_append: bool = field(default=False)
     max_completion_length: int = field(default=1024)
