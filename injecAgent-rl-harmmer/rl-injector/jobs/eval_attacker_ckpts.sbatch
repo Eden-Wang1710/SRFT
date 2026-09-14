@@ -7,7 +7,7 @@
 # Evaluate every attacker checkpoint of one RL-Hammer run on InjecAgent test.json (100 cases) against the SAME target config it was
 # trained on (docs/12). Cluster-neutral; normally chained after the training job by jobs/submit_rlh.sh. Restart-safe: checkpoints whose
 # result JSON exists are skipped. As NeurIPS: val_max_new_tokens 1024, target T 0.6 / top-p 0.95 / top-k 20 (config defaults).
-# --export: TARGET=sr_llama|llama_base, SYS_APPEND=0|1, RUN_NAME, SR_LORA (sr_llama), [VAL_BATCH_SIZE=16], [CKPT_DIR=checkpoints/$RUN_NAME]
+# --export: TARGET=sr_llama|llama_base, SYS_APPEND=0|1, RUN_NAME, SR_LORA (sr_llama), [VAL_BATCH_SIZE=16], [CKPT_DIR=checkpoints/$RUN_NAME], [CKPT_OFFSET=0]
 # Output: outputs/<RUN_NAME>_/<RUN_NAME>_attack_<ckpt>/<ckpt>-lora.json + attack_success_rate.json (tracked in git for outputs/iclr_*)
 set -euo pipefail
 SRFT_ROOT="${SRFT_ROOT:-$(d="${SLURM_SUBMIT_DIR:-$PWD}"; while [ ! -f "$d/env/select.sh" ] && [ "$d" != / ]; do d=$(dirname "$d"); done; echo "$d")}"
@@ -34,13 +34,18 @@ mapfile -t CKPTS < <(find "$CKPT_DIR" -maxdepth 1 -mindepth 1 -type d -name 'che
 for c in "${CKPTS[@]}"; do
   name=$(basename "$c")
   [ -f "$c/adapter_model.safetensors" ] || { echo "skip non-LoRA $c"; continue; }
+  # CKPT_OFFSET (2026-09-14): a continuation run's checkpoint-k is reported as checkpoint-(k+offset) of the original run
+  step=${name#checkpoint-}; name="checkpoint-$((step + ${CKPT_OFFSET:-0}))"
   run="${RUN_NAME}_attack_${name}"
   out="outputs/${RUN_NAME}_/${run}/${name}-lora.json"
   [ -f "$out" ] && { echo "done already: $out"; continue; }
-  ln -sfn "$name" "$CKPT_DIR/${name}-lora"          # "lora" in the path makes injecagent_eval load it as an adapter
+  # "lora" in the path makes injecagent_eval load it as an adapter. The link lives OUTSIDE the checkpoint dir: 2026-09-13 links named
+  # checkpoint-N-lora inside a live training dir were counted by the trainer's save_total_limit rotation, which then deleted real ckpts.
+  LINKDIR="${CKPT_DIR%/}_lora_links"; mkdir -p "$LINKDIR"
+  ln -sfn "$(realpath "$c")" "$LINKDIR/${name}-lora"
   echo "=== $name $(date)"
   python injecagent_eval.py \
-    --attacker_model_name_or_path "$CKPT_DIR/${name}-lora" \
+    --attacker_model_name_or_path "$LINKDIR/${name}-lora" \
     --attacker_base_model_name_or_path "$BASE" \
     --target_model_name_or_path "$TGT" \
     --target_base_model_name_or_path "$BASE" \
