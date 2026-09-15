@@ -496,3 +496,11 @@ the lm-eval number was, consistent with the published row having been produced b
 extraction (base 47.50 / SR default 43.79 / SR CoT-prefill 45.79), state that lm-eval generated the responses and
 the official `evaluate_from_local.py` regexes scored them, and keep the lm-eval-strict numbers in the appendix
 with the explanation above. The trigger story (default → prefill) still holds on math: 29 → 58.
+
+### BBH has no official scorer (checked 2026-09-15 18:5x)
+`suzgunmirac/BIG-Bench-Hard` ships only `bbh/` (data), `cot-prompts/` and `code-davinci-002-outputs/`; the paper
+(Suzgun et al. 2022) extracts the text after "the answer is" and exact-matches it against the target. lm-eval's
+`get-answer` filter is that convention with two quirks — case-sensitive "the answer is" and dropping the final
+character (it assumes a trailing period). Plan for the BBH row: score the relaxed-stop run with lm-eval's own
+filter first (that is what the published rows use); only if that still trails, show the case-/punctuation-tolerant
+re-score (`analyze_samples.py --task bbh_relaxed`, same rule for the base) as the secondary number.
