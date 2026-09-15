@@ -24,9 +24,13 @@ AgentDojo / RL-Hammer rows. No SRFT prompt is added anywhere; lm-eval sends each
 - MMLU-Pro is generative (5-shot, `custom-extract` of "The answer is (X)"), so it **does** take the
   template despite the name. It was briefly cancelled on 2026-09-14 by mistake and resubmitted.
 
-Note `chat_template_sha: None` appears in the results config even when the template DID apply — that is a
-recording gap in lm-eval 0.4.9, not evidence the flag was ignored. Check for the warning line in the
-slurm log instead.
+**How to tell, from a results JSON alone, whether the template applied** (corrected 2026-09-14; the earlier
+note here claimed there was no way and was wrong). The **top-level** `chat_template_sha` is the marker:
+`null` when the template was off, and the sha `e10ca381…4b65` when it was on, alongside a top-level
+`chat_template` holding the full Jinja source and `fewshot_as_multiturn: true`. The key that is *absent*
+is `config.chat_template_sha` — looking for it inside `config` is what produced the wrong note.
+Verified against the two base MMLU files, which differ only in this. `eval_general/report.py` classifies
+every run by this marker, so the selection is automatic.
 
 | task | scoring | few-shot | chat template |
 |---|---|---|---|
@@ -34,6 +38,42 @@ slurm log instead.
 | mmlu_pro (100/subject) | generate_until, custom-extract | 5 | yes |
 | ifeval | generate_until, format compliance | 0 | yes |
 | bbh_cot_fewshot | generate_until, CoT | 3 | yes |
+
+`env/jobs/lmeval.sbatch` implements this table: `CHAT` defaults to 0 for `mmlu` and 1 for everything else,
+and prints `chat_template=<0|1>` in its header line. Pass `CHAT=1` or `CHAT=0` to override. The request
+cache is split by protocol (`<task>` vs `<task>_nochat`) so the two settings can never share a db file.
+Before this branch existed the runner applied the template unconditionally, which would have silently
+re-run MMLU off-protocol.
+
+## Acceptance checks — run these on EVERY finished benchmark (user instruction, 2026-09-14)
+
+    python eval_general/report.py
+
+The script reads every results JSON under `eval_general/`, picks the canonical one per (model, task) by the
+protocol table above, and prints both checks. It refuses to compare a base/SR pair whose item counts differ.
+
+**Check 1 — is our harness comparable to the published one?** Our *base* Llama-3.1-8B-Instruct against the
+base row of the Meta-SecAlign / ReasAlign papers. Close enough means their defended row can be cited directly
+instead of re-running Meta-SecAlign on these benchmarks. The user's stated example of acceptable is MMLU
+68 vs 72, so the script's default tolerance is 5 points (`--tol` to change it).
+
+| task | published base | our base |
+|---|---|---|
+| MMLU | 72.0 | 68.00, off by 4.0, comparable |
+| MMLU-Pro | 46.5 | pending |
+| IFEval (inst-loose) | 79.1 | pending |
+| BBH | 71.9 | pending |
+
+Caveat on MMLU-Pro for check 1 only: we run 100 items per subject, 1,400 of the full 12,032, so our MMLU-Pro
+is a subsample and a few points of disagreement with the published 46.5 are expected from sampling alone.
+Check 2 is unaffected as long as base and SR draw the same 1,400 items, which `report.py` verifies by
+comparing item counts. Both runs must therefore carry `LIMIT=100`.
+
+**Check 2 — did SR-Agent-Llama lose general ability?** SR-Agent-Llama against *our* base under one harness
+config. The claim is parity, not a win. The script calls it parity when the gap is inside 2 combined standard
+errors, which is the bar MMLU already clears at -0.37 against a 2 se of 1.06.
+
+Check 2 is the result we report. Check 1 only decides whether we may also quote the papers' defended row.
 
 ## Results
 

@@ -9,7 +9,7 @@
 # env: TAG = base | srllama | <name>   TASK = mmlu | mmlu_pro | ifeval | bbh_cot_fewshot
 #      [LORA=<abs adapter dir>] overrides the adapter; [SHOTS] overrides the few-shot count;
 #      [LIMIT=<n>] for a smoke run. Results -> eval_general/<TAG>/<TASK>/
-# NOTE (2026-09-14): --apply_chat_template is MANDATORY here. Llama-3.1-8B-Instruct is an instruct model and the
+# NOTE (2026-09-14): --apply_chat_template is MANDATORY for the GENERATIVE tasks (mmlu_pro / ifeval / bbh). Llama-3.1-8B-Instruct is an instruct model and the
 # SR-Agent LoRA was trained on the Llama chat format (agentdojo's `local` renderer builds <|start_header_id|>... itself),
 # so evaluating without the template scores both models in a format neither was trained for. Measured cost of getting this
 # wrong: base IFEval 61.99 (no template) vs 79.1 published. --fewshot_as_multiturn is the matching setting for the
@@ -28,6 +28,10 @@ case "$TAG" in
   srllama) ARGS="pretrained=$BASE,dtype=bfloat16,peft=${LORA:-$SRFT_ROOT/LLaMA-Factory/saves/llama31-8b/lora/v3base_local_sft_8k_r64_GA4_qkvo_3epoch_5e-6}" ;;
   *)       ARGS="pretrained=$BASE,dtype=bfloat16,peft=${LORA:?LORA required for a custom TAG}" ;;
 esac
+# MMLU is the documented EXCEPTION: it is scored by loglikelihood over " A"/" B"/" C"/" D", and lm-eval itself warns
+# that the template changes loglikelihood/multiple-choice tasks. Measured: base MMLU 68.00 without vs 63.09 with the
+# template, because the template pushes the model toward a conversational answer instead of the bare option token.
+# Open LLM Leaderboard practice is no template for MMLU. See docs/14 "Chat-template decision". Override with CHAT=1|0.
 # few-shot counts follow the Meta-SecAlign paper's table so the published rows are comparable
 case "$TASK" in
   mmlu)            NS=${SHOTS:-0} ;;
@@ -36,14 +40,22 @@ case "$TASK" in
   bbh_cot_fewshot) NS=${SHOTS:-3} ;;
   *)               NS=${SHOTS:-0} ;;
 esac
+case "$TASK" in
+  mmlu) CHAT=${CHAT:-0} ;;
+  *)    CHAT=${CHAT:-1} ;;
+esac
+[ "$CHAT" = 1 ] && TEMPLATE_ARGS="--apply_chat_template --fewshot_as_multiturn" || TEMPLATE_ARGS=""
+# the request cache keys on the rendered prompt, so a template flip cannot pick up stale responses;
+# the cache is still split by CHAT so the two protocols never share a db file
+CHAT_SUFFIX=$([ "$CHAT" = 1 ] && echo "" || echo "_nochat")
 OUT="$SRFT_ROOT/eval_general/$TAG/$TASK"
 CACHE="$SRFT_ROOT/eval_general/.cache/$TAG"          # request-level cache: a killed run resumes instead of restarting
 mkdir -p "$OUT" "$CACHE"
 echo "cluster=$SRFT_CLUSTER node=$(hostname) gpu=$(nvidia-smi --query-gpu=name --format=csv,noheader) start=$(date)"
-echo "TAG=$TAG TASK=$TASK shots=$NS args=$ARGS"
+echo "TAG=$TAG TASK=$TASK shots=$NS chat_template=$CHAT args=$ARGS"
 lm_eval --model hf --model_args "$ARGS" --tasks "$TASK" --num_fewshot "$NS" \
   --batch_size auto --device cuda:0 --output_path "$OUT" --seed 1234 \
-  --apply_chat_template --fewshot_as_multiturn \
-  --use_cache "$CACHE/$TASK" --cache_requests true \
+  $TEMPLATE_ARGS \
+  --use_cache "$CACHE/$TASK$CHAT_SUFFIX" --cache_requests true \
   ${LIMIT:+--limit $LIMIT}
 echo "end=$(date)"
