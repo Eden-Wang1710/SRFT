@@ -49,8 +49,15 @@ def load(path):
     keys = [k for k in METRICS[task] if k in a]
     if not keys:  # fall back to whatever non-stderr floats are present
         keys = [k for k, v in a.items() if isinstance(v, float) and "stderr" not in k][:1]
-    vals = {k: 100 * a[k] for k in keys}
-    errs = {k: 100 * a.get(k.replace(",", "_stderr,"), float("nan")) for k in keys}
+    def num(x):
+        # lm-eval writes the literal string "N/A" for a stderr it did not compute (seen on IFEval)
+        try:
+            return 100 * float(x)
+        except (TypeError, ValueError):
+            return float("nan")
+
+    vals = {k: num(a[k]) for k in keys}
+    errs = {k: num(a.get(k.replace(",", "_stderr,"))) for k in keys}
     n = d.get("n-samples", {})
     return {
         "path": path,
@@ -60,7 +67,7 @@ def load(path):
         "errs": errs,
         "keys": keys,
         # headline = the mean across reported metrics; for every task but IFEval that is the single metric
-        "score": sum(vals.values()) / len(vals) if vals else None,
+        "score": (sum(vals.values()) / len(vals)) if vals and not any(math.isnan(v) for v in vals.values()) else None,
         "items": sum(v.get("effective", 0) for v in n.values()),
         "limit": d.get("config", {}).get("limit"),
         "date": os.path.basename(path)[8:27],
