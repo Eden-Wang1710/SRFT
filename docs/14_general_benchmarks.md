@@ -279,3 +279,77 @@ style, and the fix for the paper is to report a regex-tolerant or stop-string-re
 default one — not to claim parity on the default.
 
 Until that diagnostic returns, report BBH as a drop under investigation, exactly as MMLU-Pro.
+
+## Where the two check-2 failures come from — settled from the per-item samples (2026-09-15, afternoon)
+
+**How the samples were obtained without a GPU.** Every finished run's responses sit in the request cache
+(`eval_general/.cache/<tag>/<task>_rank0.db`, keyed on the rendered prompt + generation kwargs). Replaying the
+identical configuration with `LOG_SAMPLES=1` therefore hits the cache 100 % and writes every prompt / response /
+score without a single forward pass; the model still has to be instantiated, so the runner got a `DEVICE=cpu`
+knob and the replay runs on a CPU node (`-p general-short --gres=gpu:0 --mem=80G`, 2–3 min, jobs 3060480–3060483,
+`Cached requests: 6511, Requests remaining: 0`). Samples live in `eval_general/samples/<tag>/`; the replayed
+aggregate reproduces the canonical numbers exactly (45.64 / 40.86, 71.23 / 64.26). The two GPU diagnostic jobs
+3058806/3058807 were cancelled as superseded — they would have produced the same cached responses.
+
+**The analyzer** `eval_general/analyze_samples.py --task bbh|mmlu_pro` classifies every item under lm-eval's own
+STRICT filter into `correct` / `no_phrase` (never says "answer is" — truncated or ended without the sentence) /
+`format_only` (names the target after "answer is" but the strict regex or exact-match missed it) / `wrong` (a
+robust extractor finds a different answer — the only genuine failure), and re-scores both models with the ROBUST
+extractor (last "answer is …", case/markdown/parenthesis-tolerant), applied identically to both models.
+
+### BBH: the gap is truncation, not knowledge
+
+| | base | SR-Agent |
+|---|---|---|
+| correct (strict) | 4638 (71.2 %) | 4184 (64.3 %) |
+| no_phrase | 411 (6.3 %) | **827 (12.7 %)** |
+| format_only | 71 | 117 |
+| wrong | 1391 (21.4 %) | **1383 (21.2 %)** |
+
+Decomposition of the −6.97 gap: **no_phrase −6.39, format_only −0.71, wrong +0.12.** SR-Agent gets *exactly as
+many answers wrong as the base*; it just fails to emit the answer sentence twice as often. Where it fails is
+diagnostic: on `tracking_shuffled_objects_seven_objects` 207 of 250 SR responses (base: 2) are ~140 characters
+long, all end with "." and all look like
+
+    Let's think step by step.
+    (0) At the start: Alice: orange, Bob: yellow, Claire: brown, Dave: white, Eve: black, Fred: red, Gertrude: purple.
+
+— cut after step (0). The stock BBH generation kwargs are `until: ["</s>", "Q", "\n\n"]`, so the harness stops
+the model at the first blank line. SR-Agent writes a blank line between reasoning steps; the base does not. The
+text after the blank line **was never generated**, which is why re-scoring cannot recover it: under the ROBUST
+extractor SR moves 64.26 → 65.90 and the base 71.23 → 72.25, gap −6.34, essentially unchanged. (The three-object
+version of the same task barely moves, 92.8 → 90.4, because a three-step answer fits before the first blank line.)
+
+### MMLU-Pro: the gap is SR-Agent skipping the chain of thought — a style change, not an extraction failure
+
+Here the extraction hypothesis was **wrong** and the samples say so: SR has *fewer* `no_phrase` items than the base
+(135 vs 180) and *more* `wrong` (681 vs 573); the decomposition of −4.79 is no_phrase +3.21, format_only −0.29,
+**wrong −7.71**, and the ROBUST extractor leaves the gap at −4.29. What differs is the *response style*:
+
+| | base | SR-Agent |
+|---|---|---|
+| items answered directly, no chain of thought (response < 200 chars or starting "The answer is") | **31 / 1400 (2.2 %)** | **800 / 1400 (57.1 %)** |
+| median response length, math | 1046 chars | **18 chars** ("The answer is (B).") |
+
+Every subject's prompt literally says "Think step by step and then finish your answer with 'the answer is (X)'";
+the base complies, SR-Agent answers in one line on 57 % of items. On subjects where working matters that costs
+accuracy: on the 68 math items SR answered directly, the base (reasoning on the same items) scores 66 %, SR 25 %;
+on biology, where recall suffices, the direct answers are fine (68 % vs 63 %). So the MMLU-Pro drop is real under
+the default protocol, but it measures a **behavioural shift induced by SRFT** (the agentic SFT trajectories teach
+terse assistant turns) rather than lost knowledge — and that is a claim to be tested, not asserted.
+
+### The test: one symmetric protocol knob per benchmark (check 3 in `report.py`)
+
+`eval_general/tasks/make_variants.py` generates two task groups from the stock lm-eval dirs (committed under
+`eval_general/tasks/`, loaded by the runner via `--include_path`), each changing exactly one thing:
+
+| variant | knob | what it tests |
+|---|---|---|
+| `bbh_cot_fewshot_relaxed` | `until: ["</s>", "\n\nQ:"]` (no bare `"\n\n"` / `"Q"` stop) | does SR reach the answer sentence when it is allowed to finish? |
+| `mmlu_pro_cot` | assistant turn prefilled with "Let's think step by step." (lm-eval `gen_prefix`, rendered with `continue_final_message`) — the standard zero-shot-CoT trigger | does SR match the base once it actually reasons? |
+
+Both models are re-run under each knob; the default rows remain the reported numbers and the variant rows are
+shown next to them. **Re-inference is unavoidable for both**: the BBH text was never generated, and on MMLU-Pro
+the answers that exist are one-liners. Predictions to check against: under the relaxed stop strings SR's BBH
+should recover most of the 6.4-point no_phrase deficit while the base moves little; under the CoT prefill SR's
+MMLU-Pro should approach the base's 45.6 — if it does not, the drop is a capability loss and gets reported as one.
