@@ -19,6 +19,11 @@ Both models are always treated identically; the point is the symmetric compariso
     python eval_general/analyze_samples.py --task bbh
     python eval_general/analyze_samples.py --task mmlu_pro
     python eval_general/analyze_samples.py --task bbh --show tracking_shuffled_objects_seven_objects --n 5
+    python eval_general/analyze_samples.py --task mmlu_pro_cot     # SR under the CoT prefill vs the base DEFAULT run
+
+Robust extraction, when the response never says "answer is" but the target is an option letter, falls back to the
+last conclusion-like phrase ("I will choose B", "best matches this is: I", "correct option is (C)", a final line
+"B. text"). Applied to both models alike; strict and robust are always printed side by side.
 """
 import argparse
 import glob
@@ -35,6 +40,13 @@ TAGS = ("base", "srllama")
 PHRASE = re.compile(r"answer is", re.I)
 ROBUST_ANY = re.compile(r"answer is\s*:?\s*(.+)", re.I)
 LETTER = re.compile(r"^\(?([A-J])\)?(?:[\s.:,)]|$)")
+# conclusion-like phrases for letter-option tasks when "answer is" is absent (last match wins)
+FALLBACK = re.compile(
+    r"(?:(?:correct|best|final|right)\s+(?:answer|option|choice)\s*(?:is|would be|should be|:)\s*[:\-]?|"
+    r"(?:I(?:'d| would| will)?\s+)?(?:choose|select|go with|pick)\s*(?:option)?|"
+    r"(?:matches|corresponds to|is)\s*(?:option)?\s*[:\-]?|option|answer:)\s*\**\(?([A-J])\)?(?![a-zA-Z])",
+    re.I)
+FINAL_LINE = re.compile(r"^\**\(?([A-J])\)?[.):]\s+\S", re.M)
 
 
 def _clean(s: str) -> str:
@@ -46,15 +58,28 @@ def _clean(s: str) -> str:
 
 
 def robust_extract(resp: str, target: str):
-    """Last 'answer is ...' in the response, normalised. Returns None if the phrase never appears."""
+    """Last 'answer is ...' in the response, normalised; for letter-option targets, fall back to the last
+    conclusion-like phrase. Returns None if nothing answer-like is found."""
+    letter_target = re.fullmatch(r"\(?[A-J]\)?", target.strip()) is not None
     m = ROBUST_ANY.findall(resp)
-    if not m:
+    if m:
+        ans = _clean(m[-1].splitlines()[0])
+        if letter_target:
+            lm = LETTER.match(ans)
+            if lm:
+                return f"({lm.group(1)})"
+            # "the answer is: \n B. text" or "the answer is the first option" -> keep looking below
+        else:
+            return ans
+    if letter_target:
+        fb = FALLBACK.findall(resp)
+        if fb:
+            return f"({fb[-1].upper()})"
+        fl = FINAL_LINE.findall(resp.strip().splitlines()[-1]) if resp.strip() else []
+        if fl:
+            return f"({fl[-1].upper()})"
         return None
-    ans = _clean(m[-1].splitlines()[0])
-    if re.fullmatch(r"\(?[A-J]\)?", target.strip()):
-        lm = LETTER.match(ans)
-        return f"({lm.group(1)})" if lm else ans
-    return ans
+    return None
 
 
 def robust_match(ans, target: str) -> bool:
@@ -74,9 +99,9 @@ def classify(rec, task):
     strict_ok = float(rec["exact_match"]) == 1.0
     if strict_ok:
         return "correct"
-    if not PHRASE.search(resp):
+    ans = robust_extract(resp, target)   # includes the conclusion-phrase fallback for letter targets
+    if ans is None:
         return "no_phrase"
-    ans = robust_extract(resp, target)
     if robust_match(ans, target):
         return "format_only"
     return "wrong"
@@ -94,16 +119,23 @@ def load(tag, task):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--task", choices=["bbh", "mmlu_pro"], required=True)
+    ap.add_argument("--task", choices=["bbh", "mmlu_pro", "mmlu_pro_cot", "bbh_relaxed"], required=True,
+                    help="mmlu_pro_cot / bbh_relaxed = SR under the protocol variant vs the base DEFAULT samples")
     ap.add_argument("--show", help="print raw failing responses for this subtask (suffix after the task prefix)")
     ap.add_argument("--n", type=int, default=3)
     ap.add_argument("--tag", default="srllama")
     a = ap.parse_args()
-    prefix = "bbh_cot_fewshot" if a.task == "bbh" else "mmlu_pro"
-    data = {t: load(t, prefix) for t in TAGS}
+    base_prefix = "bbh_cot_fewshot" if a.task.startswith("bbh") else "mmlu_pro"
+    sr_prefix = {"bbh": "bbh_cot_fewshot", "mmlu_pro": "mmlu_pro", "mmlu_pro_cot": "mmlu_pro_cot",
+                 "bbh_relaxed": "bbh_cot_fewshot_relaxed"}[a.task]
+    prefix = base_prefix
+    data = {"base": load("base", base_prefix), "srllama": load("srllama", sr_prefix)}
+    if sr_prefix != base_prefix:  # re-key the SR subtasks onto the base names so they line up
+        data["srllama"] = {k.replace(sr_prefix, base_prefix, 1): v for k, v in data["srllama"].items()}
+        print(f"NOTE: SR samples are the {sr_prefix} variant; base samples are the DEFAULT {base_prefix} run")
     for t in TAGS:
         if not data[t]:
-            raise SystemExit(f"no samples for {t}/{prefix} under {SAMPLES}")
+            raise SystemExit(f"no samples for {t} under {SAMPLES}")
     subs = sorted(set(data["base"]) & set(data["srllama"]))
 
     if a.show:

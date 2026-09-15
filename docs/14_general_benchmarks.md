@@ -425,3 +425,48 @@ instruction following, **MMLU-Pro + BBH** = reasoning. Story to tell, conditiona
   row, side by side.
 - State that the base was not re-run under the variants (check 1 already matches the published base row), so an
   SR-variant number at parity with the base default is a lower bound on the base's own variant score.
+
+## MMLU-Pro-CoT result (job 3060603, 3 h 20, 1,400 items; samples replayed by 3063118) — 2026-09-15 18:0x
+
+**Strict (lm-eval `custom-extract`): SR-Agent-Llama 38.86 vs base default 45.64 (−6.79)** — *lower* than the default
+SR row (40.86). Per subject the knob did what it was meant to on the reasoning-heavy subjects and hurt the
+recall-heavy ones: math 26 → **53** (base 55), chemistry 23 → 26, computer_science 39 → 43; biology 65 → **42**
+(base 61), economics 48 → 41, psychology 56 → 48.
+
+**Why: once it reasons, SR-Agent concludes in prose instead of the templated sentence.** Per-item classes
+(`analyze_samples.py --task mmlu_pro_cot`, SR-CoT vs base default, same robust extractor for both):
+
+| | base (default) | SR-Agent (CoT prefill) |
+|---|---|---|
+| correct (strict) | 639 (45.6 %) | 544 (38.9 %) |
+| format_only — right answer stated, strict regex missed it | 29 | **99** |
+| no_phrase — no option letter stated at all | 121 | **165** |
+| **wrong** — commits to a different letter | **611** | **592** |
+
+Decomposition of the −6.79: **format_only −5.00, no_phrase −3.14, wrong +1.36.** SR-Agent gets *fewer* answers
+wrong than the base when it reasons; the whole deficit is how it ends the response: "…I will choose B as the
+most representative example", "The correct definition is … which is option E", "…which is the definition of an
+endergonic reaction" (right answer, no letter). 21.8 % of its CoT responses never say "answer is" (default SR
+9.6 %, base 12.9 %); only 49 of those hit the 2,048-token cap.
+
+**Under one symmetric robust extractor** (last "answer is (X)"; else the last conclusion phrase — "choose X",
+"option X", "best answer is X", a final "X. …" line; case/markdown/parenthesis-tolerant; the same code path on the
+base's responses, which also gain +2.07 from it):
+
+| protocol | base | SR-Agent | gap | 2 se |
+|---|---|---|---|---|
+| default, strict (reported row) | 45.64 | 40.86 | −4.79 | 3.67 |
+| CoT prefill, strict | 45.64 | 38.86 | −6.79 | 3.68 |
+| default, robust | 47.71 | 43.86 | −3.86 | 3.76 |
+| **CoT prefill, robust** | **47.71** | **45.93** | **−1.79** | **3.77 → PARITY** |
+
+So MMLU-Pro needs **two** style corrections before it measures knowledge on SR-Agent: (1) a trigger to reason at
+all (the prefill; math 26 → 53), and (2) an extractor that accepts a prose conclusion (the robust rule; +7.1 points
+on the CoT run vs +2.1 on the base). With both, SR-Agent is inside 2 se of the base, and its count of genuinely
+wrong answers is the lower of the two. The remaining 165 `no_phrase` items include conclusions that name the
+right option in words only (e.g. "endergonic" for A); an option-text matcher would recover some of those for both
+models — not done, the letter-based rule is easier to defend.
+
+How to report: the default strict row stays; add the CoT-prefill row *with the robust extractor*, and state the
+robust rule and that it is applied to the base's responses too. Do not report the strict CoT number alone — it
+is the least informative of the four.
