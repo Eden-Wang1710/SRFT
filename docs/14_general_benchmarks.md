@@ -118,3 +118,31 @@ curves are unaffected.
 
 Queue note: fairshare is exhausted (EffectvUsage 1.0, Priority 1), so jobs start only when a slot frees.
 Standing node denylist `c2-gpu-[004-006,010]` (see `09_cluster_washu.md`).
+
+### Settings audit of the in-flight batch (2026-09-14 23:5x)
+All six jobs verified against their spooled batch script and their submission command. Editing
+`env/jobs/lmeval.sbatch` does NOT reach a submitted job — slurm spools a copy — so the `CHAT` branch added
+today applies only to future submissions. All six in-flight tasks are generative and want the template
+anyway, so the old unconditional behaviour is correct for them and nothing needs resubmitting.
+
+| jobid | task | limit | partition | denylist | time |
+|---|---|---|---|---|---|
+| 3057188 | base ifeval | full 541 | general-gpu | yes | 8 h |
+| 3057189 | base bbh | full 6511 | general-gpu | yes | 20 h |
+| 3057192 | srllama ifeval | full 541 | general-gpu | yes | 8 h |
+| 3057193 | srllama bbh | full 6511 | general-gpu | yes | 20 h |
+| 3057328 | base mmlu_pro | LIMIT=100 → 1400 | general-gpu + **preempt** | added after the fact | 8 h |
+| 3057329 | srllama mmlu_pro | LIMIT=100 → 1400 | general-gpu + **preempt** | added after the fact | 8 h |
+
+Two deviations found in the MMLU-Pro pair, which was resubmitted with a plain `env/sb gpu` instead of the
+`-p general-gpu --exclude=$(cat slurm_logs/.rlh_denylist)` the other four carry:
+- **No node denylist.** Fixed in place with `scontrol update JobId=<id> ExcNodeList=…`, which a pending job
+  accepts without losing its queue position. Worth knowing as the cheap repair for this mistake.
+- **`general-preempt-gpu` included**, so these two can land on a preemptible A100 and be requeued. Left as
+  is: `--use_cache --cache_requests true` makes a requeued run resume, and the extra partition is a
+  scheduling advantage while fairshare is exhausted. It does mean these two may run slower than the H100 rows.
+
+Schedule risk to watch: `srllama bbh` has a 20 h limit and base BBH is measured at 7.08 s/item, i.e. ≈12.6 h
+for 6511 items; the LoRA is slower, so the srllama run could approach the limit. `scontrol update TimeLimit`
+can only *shorten* a job (`09_cluster_washu.md`), so the only remedy is cancel and resubmit, and the request
+cache means a resubmitted run resumes rather than restarts.
