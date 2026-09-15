@@ -409,3 +409,19 @@ Checked against the training data and the exact prompts lm-eval logged, not gues
 Implication for the write-up: the MMLU-Pro default row measures how strongly each model copies a degenerate
 few-shot rendering, which is why the CoT-prefill variant is the informative one. An alternative, arguably cleaner
 variant would fix the rendering itself (put the exemplar CoT in the assistant turns, as BBH does); not run for now.
+
+### Paper framing for the general-capability block (user, 2026-09-15 15:xx)
+
+The four benchmarks cover the three things a reviewer will ask about: **MMLU** = world knowledge, **IFEval** =
+instruction following, **MMLU-Pro + BBH** = reasoning. Story to tell, conditional on check 3 landing near the base:
+
+- MMLU and IFEval: parity under the default protocol, nothing to explain.
+- MMLU-Pro: SR-Agent-Llama's *trigger* for visible reasoning moved — SRFT teaches `<think>` conditioned on the
+  agent context, so in plain QA it has to be prompted once ("Let's think step by step." prefill); once triggered its
+  score is the evidence that the reasoning ability itself is intact. Report the default row (40.86) AND the
+  prefill row, side by side.
+- BBH: an evaluation artifact, not a trigger issue — SR already reasons on every item; the stock `\n\n` stop string
+  cuts its multi-paragraph answers before the answer sentence. Report the default row (64.26) AND the relaxed-stop
+  row, side by side.
+- State that the base was not re-run under the variants (check 1 already matches the published base row), so an
+  SR-variant number at parity with the base default is a lower bound on the base's own variant score.
