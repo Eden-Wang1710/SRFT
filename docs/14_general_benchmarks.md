@@ -95,7 +95,7 @@ Check 2 is the result we report. Check 1 only decides whether we may also quote 
 | IFEval inst-strict | 81.06 | 81.89 | +0.84 |
 | IFEval prompt-loose | 78.19 | 77.82 | -0.37 |
 | IFEval prompt-strict | 73.01 | 74.31 | +1.29 |
-| BBH CoT (3-shot, template) | running 3057189 | pending 3057193 | |
+| BBH CoT (3-shot, template) | **71.23** | running 3057193 | |
 
 ### Archived no-template run (`eval_general_nochat/`, kept deliberately)
 Off-protocol for the generative tasks; retained so both configurations exist.
@@ -126,10 +126,10 @@ curves are unaffected.
 | 3057186 | base mmlu, template | COMPLETED 63.09 — evidence for the MMLU decision, not reported |
 | 3057187/3057190/3057191 | mmlu + mmlu_pro, template | CANCELLED; mmlu_pro resubmitted as 3057328/3057329 |
 | 3057188 | base ifeval, template | COMPLETED — inst-loose 84.77 / inst-strict 81.06 / prompt-loose 78.19 / prompt-strict 73.01 |
-| 3057189 | base bbh, template | RUNNING |
+| 3057189 | base bbh, template | COMPLETED — 71.23 exact_match,get-answer (stderr 0.51), 6:37 |
 | 3057192 | srllama ifeval, template | COMPLETED — 84.77 / 81.89 / 77.82 / 74.31 |
 | 3057193 | srllama bbh, template | RUNNING |
-| 3057328/3057329 | base/srllama mmlu_pro, template | PENDING |
+| 3057328/3057329 | base/srllama mmlu_pro, template | RUNNING (started 05:35/05:39) |
 
 Queue note: fairshare is exhausted (EffectvUsage 1.0, Priority 1), so jobs start only when a slot frees.
 Standing node denylist `c2-gpu-[004-006,010]` (see `09_cluster_washu.md`).
@@ -167,6 +167,12 @@ Instruction-following is **unchanged** by SRFT: four metrics, largest deviation 
 ahead on two of them (inst-strict +0.84, prompt-strict +1.29). This is stronger than the parity the
 section set out to show, and is the cleanest general-capability evidence in the set, because IFEval is
 scored by programmatic format compliance rather than by an accuracy proxy.
+
+## Published-number sanity checks
+Both completed base rows land where the public numbers for `Llama-3.1-8B-Instruct` sit, which is the
+independent check that the template setting is right:
+IFEval 81.06 inst-strict / 78.19 prompt-loose against a published 79.1; BBH 71.23 against a commonly
+reported 70-72. The no-template run missed IFEval by 17 points.
 
 ## Account contention
 `reasalign_repro_A/B` (3057398/3057399, started 2026-09-15 ~00:00, c2-gpu-001) run under the same
