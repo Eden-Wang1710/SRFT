@@ -63,13 +63,14 @@ instead of re-running Meta-SecAlign on these benchmarks. The user's stated examp
 | task | published base | our base |
 |---|---|---|
 | MMLU | 72.0 | 68.00, off by 4.0, comparable |
-| MMLU-Pro | 46.5 | pending |
+| MMLU-Pro | 46.5 | **45.64, off by 0.86** |
 | IFEval (mean of 4) | 79.1 | **79.26, off by 0.16** |
 | BBH | 71.9 | **71.23, off by 0.67** |
 
-**Check 1 is settled on three of four: our harness reproduces the published base row.** MMLU -4.00,
-IFEval +0.16, BBH -0.67, all inside the 5-point tolerance. Only MMLU-Pro is outstanding, and it is the one
-where a gap is expected anyway because we subsample.
+**Check 1 PASSES on all four: our harness reproduces the published base row.** MMLU -4.00, MMLU-Pro -0.86,
+IFEval +0.16, BBH -0.67, every one inside the 5-point tolerance. MMLU-Pro landing this close is better than
+expected given that we score 1,400 of 12,032 items. The Meta-SecAlign / ReasAlign defended row may therefore
+be cited against ours rather than re-run.
 
 **IFEval metric convention (settled 2026-09-15).** IFEval reports four sub-metrics and the published 79.1 is
 their **mean**, not any one of them. Our four are prompt-strict 73.01, inst-strict 81.06, prompt-loose 78.19,
@@ -94,7 +95,7 @@ Check 2 is the result we report. Check 1 only decides whether we may also quote 
 | task | base | SR-Agent-Llama | delta |
 |---|---|---|---|
 | MMLU (0-shot, no template) | **68.00** | **67.63** | -0.37 |
-| MMLU-Pro (5-shot, 100/subj, template) | pending 3057328 | pending 3057329 | |
+| MMLU-Pro (5-shot, 100/subj, template) | **45.64** | **40.86** | **-4.79, outside 2 se = 3.67 — the one FAILURE** |
 | IFEval inst-loose (0-shot, template) | **84.77** | **84.77** | +0.00 |
 | IFEval inst-strict | 81.06 | 81.89 | +0.84 |
 | IFEval prompt-loose | 78.19 | 77.82 | -0.37 |
@@ -160,6 +161,42 @@ Two deviations found in the MMLU-Pro pair, which was resubmitted with a plain `e
 - **`general-preempt-gpu` included**, so these two can land on a preemptible A100 and be requeued. Left as
   is: `--use_cache --cache_requests true` makes a requeued run resume, and the extra partition is a
   scheduling advantage while fairshare is exhausted. It does mean these two may run slower than the H100 rows.
+
+## The MMLU-Pro drop — the one check-2 failure (2026-09-15)
+
+SR-Agent-Llama scores **40.86 against the base's 45.64, a 4.79-point drop against a 2 se bar of 3.67.**
+This is the only benchmark of the four that fails check 2, and it needs an explanation before it is reported.
+
+**The drop is not spread across subjects — it is almost entirely math.**
+
+| subject | base | SR | delta | | no-template base | no-template SR | delta |
+|---|---|---|---|---|---|---|---|
+| math | 55.0 | 26.0 | **-29.0** | | 45.0 | 41.0 | -4.0 |
+| chemistry | 35.0 | 23.0 | -12.0 | | 30.0 | 38.0 | +8.0 |
+| philosophy | 49.0 | 38.0 | -11.0 | | 41.0 | 38.0 | -3.0 |
+| computer_science | 49.0 | 39.0 | -10.0 | | 45.0 | 49.0 | +4.0 |
+| economics | 54.0 | 48.0 | -6.0 | | 37.0 | 45.0 | +8.0 |
+| the other 9 | | | -4 to +4 | | | | |
+
+SR is lower in 8 of 14 subjects, but math alone contributes about 2.1 of the 4.79-point mean drop.
+
+**Why this looks like a generation-format failure rather than lost knowledge.** MMLU-Pro is scored by
+`custom-extract`, a regex for "The answer is (X)" at the end of a chain of thought. A response that reasons
+correctly but never emits that string scores zero. The decisive evidence is the no-template column: the
+*same adapter weights* score **41.0** on math without the chat template and **26.0** with it, while the base
+goes the other way, 45.0 → 55.0. The template makes the base much better at math and the SR model much
+worse. Weights do not lose arithmetic because a template was applied; a generation *style* can stop matching
+an extraction regex. The plausible mechanism is that the SR-Agent LoRA, trained on agentic trajectories in
+exactly this chat format, falls into a reflective or tool-calling register under the template and either
+runs past the generation cap or ends without the required answer string.
+
+**Diagnostic submitted, 3058806 / 3058807**: `mmlu_pro_math` only, 5-shot, 100 items, both models, with the
+new `LOG_SAMPLES=1` knob so every prompt, response and score is written out. That settles it directly —
+count how many SR responses fail the regex versus how many extract an answer that is simply wrong. Results
+go to `eval_general/<tag>/mmlu_pro_math/`, a separate directory that cannot disturb the canonical rows.
+
+Until that returns, report MMLU-Pro as a drop and say the cause is under investigation. Do not describe it
+as parity.
 
 ### The request cache is protocol-safe — proved by the MMLU-Pro restart (2026-09-15)
 When `base mmlu_pro` restarted it showed **1262** requests to run while `srllama mmlu_pro` showed **1400**.

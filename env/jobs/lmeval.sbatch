@@ -8,7 +8,9 @@
 #   bash env/sb gpu --export=ALL,TAG=srllama,TASK=mmlu env/jobs/lmeval.sbatch
 # env: TAG = base | srllama | <name>   TASK = mmlu | mmlu_pro | ifeval | bbh_cot_fewshot
 #      [LORA=<abs adapter dir>] overrides the adapter; [SHOTS] overrides the few-shot count;
-#      [LIMIT=<n>] for a smoke run. Results -> eval_general/<TAG>/<TASK>/
+#      [LIMIT=<n>] for a smoke run; [CHAT=1|0] forces the chat template on/off (default: off for mmlu, on otherwise);
+#      [LOG_SAMPLES=1] also writes every prompt/response/score, needed to tell a format failure from a knowledge
+#      failure on the generate_until tasks. Results -> eval_general/<TAG>/<TASK>/
 # NOTE (2026-09-14): --apply_chat_template is MANDATORY for the GENERATIVE tasks (mmlu_pro / ifeval / bbh). Llama-3.1-8B-Instruct is an instruct model and the
 # SR-Agent LoRA was trained on the Llama chat format (agentdojo's `local` renderer builds <|start_header_id|>... itself),
 # so evaluating without the template scores both models in a format neither was trained for. Measured cost of getting this
@@ -57,5 +59,6 @@ lm_eval --model hf --model_args "$ARGS" --tasks "$TASK" --num_fewshot "$NS" \
   --batch_size auto --device cuda:0 --output_path "$OUT" --seed 1234 \
   $TEMPLATE_ARGS \
   --use_cache "$CACHE/$TASK$CHAT_SUFFIX" --cache_requests true \
+  ${LOG_SAMPLES:+--log_samples} \
   ${LIMIT:+--limit $LIMIT}
 echo "end=$(date)"
