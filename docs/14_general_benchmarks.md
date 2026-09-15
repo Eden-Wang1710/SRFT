@@ -382,3 +382,30 @@ them: the knobs could in principle lift the base too (it has 411 `no_phrase` BBH
 number at parity with the base default is a lower bound on the base's own variant score — state it that way.
 
 Results land in `eval_general/srllama/<variant>/` and `report.py` check 3 prints them next to the default rows.
+
+### Why SR-Agent skips the chain of thought on MMLU-Pro but not on BBH (user question, 2026-09-15 13:0x)
+
+Checked against the training data and the exact prompts lm-eval logged, not guessed:
+
+1. **SRFT's reflection is conditioned on the tool-agent context.** `LLaMA-Factory/data/toucan_32B_v3_base.json`:
+   3,698 trajectories, ONE system prompt for all of them (the tool-use agent prompt with a `<tools>` block), and
+   every one of the 6,847 final assistant turns and 15,492 function-call turns starts with `<think>…</think>`.
+   Visible answers after the think block are not short (median 1,228 chars, 1 % under 200). In the general
+   benchmarks the model never emits `<think>` — 0 of 1,400 MMLU-Pro, 0 of 6,511 BBH, 0 of 28 smoke responses —
+   because none of these prompts carries the tool-agent system prompt. So "SRFT teaches thinking" holds *in the
+   agentic regime it was trained in*; in a plain QA chat the reflection does not fire, and what governs the response
+   is the generic chat prior, which the SFT shifted.
+2. **What that prior does is imitate the in-context assistant-turn pattern, and lm-eval's MMLU-Pro rendering makes
+   that pattern "say nothing".** With `--fewshot_as_multiturn` the stock MMLU-Pro config (`fewshot_config.doc_to_target: ""`)
+   puts each worked exemplar — question + chain of thought + "The answer is (X)" — into the **user** turn and leaves the
+   five **assistant** turns **empty** (verified on the logged prompt: 5 × `assistant len=0`). The base's RLHF prior
+   follows the system instruction "Think step by step …" anyway (2 % one-liners); SR-Agent follows the demonstrated
+   pattern (57 % one-liners). BBH is the control: its exemplar CoT sits in the **assistant** turns
+   (`assistant len=369, "Let's think step by step.\n(0) At the start: …"`), and there SR-Agent reasons on every
+   item — its only BBH problem is the blank line between steps hitting the `\n\n` stop.
+3. It is not a length or capacity issue: SR-Agent's BBH responses run to 1,495 chars / 8 steps once the stop string is
+   relaxed, and its MMLU-Pro-CoT smoke responses have a 907-char median after the prefill.
+
+Implication for the write-up: the MMLU-Pro default row measures how strongly each model copies a degenerate
+few-shot rendering, which is why the CoT-prefill variant is the informative one. An alternative, arguably cleaner
+variant would fix the rendering itself (put the exemplar CoT in the assistant turns, as BBH does); not run for now.
