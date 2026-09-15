@@ -14,7 +14,10 @@ AgentDojo / RL-Hammer rows. No SRFT prompt is added anywhere; lm-eval sends each
 
 - Llama-3.1-8B-Instruct is an instruct model; evaluating it in raw-completion mode is off-protocol and
   measurably wrong on generative tasks: base IFEval scored 61.99 inst-loose without the template vs 79.1
-  published. That mistake is what triggered this whole re-run.
+  published. That mistake is what triggered this whole re-run. Confirmed 2026-09-15: with the template base IFEval
+  is inst-loose 84.77 / inst-strict 81.06 / prompt-loose 78.19 / prompt-strict 73.01, and the published 79.1
+  falls between inst-strict and prompt-loose — the template setting reproduces the public number, the
+  no-template setting does not.
 - MMLU is the exception. It is scored by **loglikelihood over " A"/" B"/" C"/" D"**, and lm-eval itself
   warns at `lm_eval/evaluator.py:465`:
   `Chat template formatting change affects loglikelihood and multiple-choice tasks.`
@@ -82,7 +85,7 @@ Check 2 is the result we report. Check 1 only decides whether we may also quote 
 |---|---|---|---|
 | MMLU (0-shot, no template) | **68.00** | **67.63** | -0.37 |
 | MMLU-Pro (5-shot, 100/subj, template) | pending 3057328 | pending 3057329 | |
-| IFEval inst-loose (0-shot, template) | running 3057188 | pending 3057192 | |
+| IFEval inst-loose (0-shot, template) | **84.77** | pending 3057192 | |
 | BBH CoT (3-shot, template) | running 3057189 | pending 3057193 | |
 
 ### Archived no-template run (`eval_general_nochat/`, kept deliberately)
@@ -112,7 +115,8 @@ curves are unaffected.
 | 3055286 | base ifeval, no template | COMPLETED 61.99 inst-loose, archived |
 | 3057186 | base mmlu, template | COMPLETED 63.09 — evidence for the MMLU decision, not reported |
 | 3057187/3057190/3057191 | mmlu + mmlu_pro, template | CANCELLED; mmlu_pro resubmitted as 3057328/3057329 |
-| 3057188/3057189 | base ifeval / bbh, template | RUNNING |
+| 3057188 | base ifeval, template | COMPLETED — inst-loose 84.77 / inst-strict 81.06 / prompt-loose 78.19 / prompt-strict 73.01 |
+| 3057189 | base bbh, template | RUNNING |
 | 3057192/3057193 | srllama ifeval / bbh, template | PENDING |
 | 3057328/3057329 | base/srllama mmlu_pro, template | PENDING |
 
@@ -146,3 +150,8 @@ Schedule risk to watch: `srllama bbh` has a 20 h limit and base BBH is measured 
 for 6511 items; the LoRA is slower, so the srllama run could approach the limit. `scontrol update TimeLimit`
 can only *shorten* a job (`09_cluster_washu.md`), so the only remedy is cancel and resubmit, and the request
 cache means a resubmitted run resumes rather than restarts.
+
+## Account contention
+`reasalign_repro_A/B` (3057398/3057399, started 2026-09-15 ~00:00, c2-gpu-001) run under the same
+`li.hao` account but were submitted by someone else. They compete for the account's GPU allocation, so
+the pending lm-eval jobs start later than the queue position alone would suggest. Do not cancel them.
