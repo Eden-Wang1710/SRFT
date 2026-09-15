@@ -353,3 +353,26 @@ shown next to them. **Re-inference is unavoidable for both**: the BBH text was n
 the answers that exist are one-liners. Predictions to check against: under the relaxed stop strings SR's BBH
 should recover most of the 6.4-point no_phrase deficit while the base moves little; under the CoT prefill SR's
 MMLU-Pro should approach the base's 45.6 — if it does not, the drop is a capability loss and gets reported as one.
+
+### Pre-flight before the full re-inference (2026-09-15 12:14–12:26, smoke jobs 3060497 / 3060498)
+
+User's rule: a full re-run costs 3–11 GPU-hours per job, so the knobs are verified on `LIMIT=2` smoke runs
+(srllama, `LOG_SAMPLES=1`, `-p general-short`, output under `eval_general/smoke/`) with
+`eval_general/verify_variant_smoke.py`, which reads the exact prompt and gen kwargs lm-eval logged. Both pass:
+
+| variant | what the logged samples show |
+|---|---|
+| `bbh_cot_fewshot_relaxed` | `until` = `["</s>", "\n\nQ:"]` on all 54 requests; 52/54 reach "the answer is"; 6/54 responses contain a blank line (the old stop is gone); the two seven-object tracking items now run **8 steps** each (default run: cut after step 0) and both are correct |
+| `mmlu_pro_cot` | all 28 prompts end with `<\|start_header_id\|>assistant<\|end_header_id\|>\n\nLet's think step by step.` and no `<\|eot_id\|>`; median response 907 chars; **1/28** direct answers (default: 57 %); the model continues with " \n\nStatement 1: …" i.e. it reasons after the prefill; smoke aggregate 46.4 on 28 items |
+
+Full runs submitted 12:3x, identical settings to the canonical ones (`-p general-gpu`, denylist excluded,
+request cache on; BBH 30 h limit since the responses are no longer cut short, MMLU-Pro 10 h, `LIMIT=100`):
+
+| jobid | run | status |
+|---|---|---|
+| 3060600 | base bbh_cot_fewshot_relaxed | PENDING |
+| 3060601 | base mmlu_pro_cot | PENDING |
+| 3060602 | srllama bbh_cot_fewshot_relaxed | PENDING |
+| 3060603 | srllama mmlu_pro_cot | PENDING |
+
+Results land in `eval_general/<tag>/<variant>/` and `report.py` check 3 prints them next to the default rows.
