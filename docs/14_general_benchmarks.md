@@ -60,12 +60,15 @@ base row of the Meta-SecAlign / ReasAlign papers. Close enough means their defen
 instead of re-running Meta-SecAlign on these benchmarks. The user's stated example of acceptable is MMLU
 68 vs 72, so the script's default tolerance is 5 points (`--tol` to change it).
 
-| task | published base | our base |
-|---|---|---|
-| MMLU | 72.0 | 68.00, off by 4.0, comparable |
-| MMLU-Pro | 46.5 | **45.64, off by 0.86** |
-| IFEval (mean of 4) | 79.1 | **79.26, off by 0.16** |
-| BBH | 71.9 | **71.23, off by 0.67** |
+| task | published base | published Meta-SecAlign-8B | our base |
+|---|---|---|---|
+| MMLU | 72.0 | 71.7 | 68.00, off by 4.0, comparable |
+| MMLU-Pro | 46.5 | 46.7 | **45.64 lm-eval strict / 47.50 official extraction** |
+| IFEval (mean of 4) | 79.1 | 74.5 | **79.26, off by 0.16** |
+| BBH | 71.9 | 70.9 | **71.23, off by 0.67** |
+
+(Published rows = Table 3 of arXiv 2507.02735, Llama-3.1-8B-Instruct block, fetched 2026-09-15; the SecAlign-original
+column there is 71.7 / 45.9 / 73.5 / 71.2.)
 
 **Check 1 PASSES on all four: our harness reproduces the published base row.** MMLU -4.00, MMLU-Pro -0.86,
 IFEval +0.16, BBH -0.67, every one inside the 5-point tolerance. MMLU-Pro landing this close is better than
