@@ -470,3 +470,29 @@ models — not done, the letter-based rule is easier to defend.
 How to report: the default strict row stays; add the CoT-prefill row *with the robust extractor*, and state the
 robust rule and that it is applied to the base's responses too. Do not report the strict CoT number alone — it
 is the least informative of the four.
+
+### "answer is (X)" is NOT the benchmark's requirement — it is lm-eval's (user question, 2026-09-15 18:3x)
+
+Checked against the upstream file `TIGER-AI-Lab/MMLU-Pro/evaluate_from_local.py` (fetched 2026-09-15). The
+OFFICIAL MMLU-Pro extraction is three-tier: (1) `answer is \(?([A-J])\)?`; (2) else `[aA]nswer:\s*([A-J])`;
+(3) else `\b[A-J]\b(?!.*\b[A-J]\b)` — **the last standalone A–J letter anywhere in the response**. lm-eval 0.4.9's
+`custom-extract` implements tier 1 only (tier 2 sits commented out in its yaml). So the harness we run is stricter
+than the benchmark's own scorer, and the fix needs no re-inference and no home-made rule: re-score the saved
+responses with the official code. `eval_general/score_mmlu_pro_official.py` does exactly that (same code path for
+every run):
+
+| run | lm-eval strict | **official extraction** | tier hits (1 / 2 / 3 / none) |
+|---|---|---|---|
+| base default | 45.64 | **47.50** | 1180 / 0 / 127 / 93 |
+| SR-Agent default | 40.86 | **43.79** (−3.71, 2 se 3.76 → parity, marginal) | 1216 / 1 / 135 / 48 |
+| SR-Agent CoT prefill | 38.86 | **45.79** (−1.71, 2 se 3.77 → **PARITY**) | 984 / 0 / 269 / 147 |
+
+Per subject under the official extraction, SR-CoT vs base: math **58 vs 56**, computer_science 50 vs 50,
+psychology 57 vs 57, law 32 vs 30, business 56 vs 53; biology 55 vs 67 and chemistry 34 vs 41 remain the two
+subjects clearly below. Note the base's own official score (47.50) sits +1.0 from the published 46.5, closer than
+the lm-eval number was, consistent with the published row having been produced by the official scorer.
+
+**This supersedes the home-made robust extractor for the paper**: report MMLU-Pro with the benchmark's official
+extraction (base 47.50 / SR default 43.79 / SR CoT-prefill 45.79), state that lm-eval generated the responses and
+the official `evaluate_from_local.py` regexes scored them, and keep the lm-eval-strict numbers in the appendix
+with the explanation above. The trigger story (default → prefill) still holds on math: 29 → 58.

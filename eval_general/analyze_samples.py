@@ -112,6 +112,8 @@ def load(tag, task):
     out = {}
     for f in sorted(glob.glob(pat)):
         sub = re.search(rf"samples_({task}_.+?)_\d{{4}}-\d\d-\d\dT", os.path.basename(f)).group(1)
+        if sub.startswith((f"{task}_cot_", f"{task}_relaxed_")):   # a variant's files also match the default glob
+            continue
         with open(f) as fh:
             out[sub] = [json.loads(l) for l in fh]
     return out
