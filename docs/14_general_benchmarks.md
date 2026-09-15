@@ -65,7 +65,11 @@ instead of re-running Meta-SecAlign on these benchmarks. The user's stated examp
 | MMLU | 72.0 | 68.00, off by 4.0, comparable |
 | MMLU-Pro | 46.5 | pending |
 | IFEval (mean of 4) | 79.1 | **79.26, off by 0.16** |
-| BBH | 71.9 | pending |
+| BBH | 71.9 | **71.23, off by 0.67** |
+
+**Check 1 is settled on three of four: our harness reproduces the published base row.** MMLU -4.00,
+IFEval +0.16, BBH -0.67, all inside the 5-point tolerance. Only MMLU-Pro is outstanding, and it is the one
+where a gap is expected anyway because we subsample.
 
 **IFEval metric convention (settled 2026-09-15).** IFEval reports four sub-metrics and the published 79.1 is
 their **mean**, not any one of them. Our four are prompt-strict 73.01, inst-strict 81.06, prompt-loose 78.19,
@@ -156,6 +160,17 @@ Two deviations found in the MMLU-Pro pair, which was resubmitted with a plain `e
 - **`general-preempt-gpu` included**, so these two can land on a preemptible A100 and be requeued. Left as
   is: `--use_cache --cache_requests true` makes a requeued run resume, and the extra partition is a
   scheduling advantage while fairshare is exhausted. It does mean these two may run slower than the H100 rows.
+
+### The request cache is protocol-safe — proved by the MMLU-Pro restart (2026-09-15)
+When `base mmlu_pro` restarted it showed **1262** requests to run while `srllama mmlu_pro` showed **1400**.
+That is not an item-count mismatch and needs no fix. The progress bar counts cache *misses*: job 3057187
+had run 138/1400 of the same templated configuration before being cancelled, and 1400 − 1262 = 138 exactly.
+Both runs therefore cover all 1,400 items, and `report.py` reads item counts from `n-samples`, not the bar.
+
+The stronger point: that same cache db also holds a **complete** 1,400-item no-template run (job 3055603).
+If the cache key ignored the rendered prompt, the restart would have hit all 1,400 and run nothing. It hit
+exactly the 138 templated entries. **This is direct proof that a template flip cannot pick up stale
+responses**, which had previously only been inferred from IFEval getting zero hits.
 
 Schedule risk to watch: `srllama bbh` has a 20 h limit and base BBH is measured at 7.08 s/item, i.e. ≈12.6 h
 for 6511 items; the LoRA is slower, so the srllama run could approach the limit. `scontrol update TimeLimit`
