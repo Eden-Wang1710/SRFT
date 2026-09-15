@@ -91,7 +91,10 @@ Check 2 is the result we report. Check 1 only decides whether we may also quote 
 |---|---|---|---|
 | MMLU (0-shot, no template) | **68.00** | **67.63** | -0.37 |
 | MMLU-Pro (5-shot, 100/subj, template) | pending 3057328 | pending 3057329 | |
-| IFEval inst-loose (0-shot, template) | **84.77** | pending 3057192 | |
+| IFEval inst-loose (0-shot, template) | **84.77** | **84.77** | +0.00 |
+| IFEval inst-strict | 81.06 | 81.89 | +0.84 |
+| IFEval prompt-loose | 78.19 | 77.82 | -0.37 |
+| IFEval prompt-strict | 73.01 | 74.31 | +1.29 |
 | BBH CoT (3-shot, template) | running 3057189 | pending 3057193 | |
 
 ### Archived no-template run (`eval_general_nochat/`, kept deliberately)
@@ -124,7 +127,8 @@ curves are unaffected.
 | 3057187/3057190/3057191 | mmlu + mmlu_pro, template | CANCELLED; mmlu_pro resubmitted as 3057328/3057329 |
 | 3057188 | base ifeval, template | COMPLETED — inst-loose 84.77 / inst-strict 81.06 / prompt-loose 78.19 / prompt-strict 73.01 |
 | 3057189 | base bbh, template | RUNNING |
-| 3057192/3057193 | srllama ifeval / bbh, template | PENDING |
+| 3057192 | srllama ifeval, template | COMPLETED — 84.77 / 81.89 / 77.82 / 74.31 |
+| 3057193 | srllama bbh, template | RUNNING |
 | 3057328/3057329 | base/srllama mmlu_pro, template | PENDING |
 
 Queue note: fairshare is exhausted (EffectvUsage 1.0, Priority 1), so jobs start only when a slot frees.
@@ -157,6 +161,12 @@ Schedule risk to watch: `srllama bbh` has a 20 h limit and base BBH is measured 
 for 6511 items; the LoRA is slower, so the srllama run could approach the limit. `scontrol update TimeLimit`
 can only *shorten* a job (`09_cluster_washu.md`), so the only remedy is cancel and resubmit, and the request
 cache means a resubmitted run resumes rather than restarts.
+
+## Reading of the IFEval result
+Instruction-following is **unchanged** by SRFT: four metrics, largest deviation 1.29 points, and SR is
+ahead on two of them (inst-strict +0.84, prompt-strict +1.29). This is stronger than the parity the
+section set out to show, and is the cleanest general-capability evidence in the set, because IFEval is
+scored by programmatic format compliance rather than by an accuracy proxy.
 
 ## Account contention
 `reasalign_repro_A/B` (3057398/3057399, started 2026-09-15 ~00:00, c2-gpu-001) run under the same
