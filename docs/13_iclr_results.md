@@ -122,9 +122,12 @@ they were produced by that paper's own harness, so they are comparable to our ba
 | benchmark (shots) | what it tests | published base (Meta-SecAlign paper) | published **Meta-SecAlign-8B** | **our base** Llama-3.1-8B-Instruct | **SR-Agent-Llama** (no append) |
 |---|---|---|---|---|---|
 | MMLU (0-shot, loglikelihood) | world knowledge | 72.0 | 71.7 | 68.00 ±0.37 | **67.63** ±0.38 (−0.37, parity) |
-| MMLU-Pro (5-shot CoT, official extraction) | knowledge + reasoning | 46.5 | 46.7 | 47.50 | **43.79** default (−3.71, 2 se 3.76, marginal parity) · **45.79** with CoT prefill (−1.71, parity) |
+| MMLU-Pro (5-shot CoT, official extraction) | knowledge + reasoning | 46.5 | 46.7 | 47.50 | **45.79** (CoT prefill; −1.71, 2 se 3.77, parity) — default protocol 43.79 in the appendix |
 | IFEval (0-shot, mean of 4 sub-metrics) | instruction following | 79.1 | **74.5** (−4.6 vs its base) | 79.26 | **79.70** (+0.44; parity on all four sub-metrics) |
-| BBH (3-shot CoT, lm-eval filter) | multi-step reasoning | 71.9 | 70.9 | 71.23 ±0.51 | **64.26** default (−6.97, stop-string truncation) · relaxed-stop run **pending** (job 3060602) |
+| BBH (3-shot CoT, lm-eval filter) | multi-step reasoning | 71.9 | 70.9 | 71.23 ±0.51 | *pending* — relaxed-stop run 3060602 (default-protocol 64.26 is a truncation artifact, appendix) |
+
+**Table presentation fixed by the user (2026-09-15 19:3x)**: the SR-Agent MMLU-Pro cell is the CoT-prefill number; the
+BBH cell is left empty until the relaxed-stop run lands; default-protocol numbers go to the appendix with the diagnoses.
 
 Notes that must travel with the table:
 - **MMLU-Pro scorer.** Our rows use the benchmark's official three-tier extraction (`TIGER-AI-Lab/MMLU-Pro
@@ -145,3 +148,17 @@ Notes that must travel with the table:
   SRFT costs none (four sub-metrics: 73.01→74.31, 81.06→81.89, 78.19→77.82, 84.77→84.77).
 - Protocol: SR-Agent-Llama is evaluated **without** the reflection system-prompt append, matching the AgentDojo /
   RL-Hammer main rows; chat template on for the generative tasks and off for MMLU (docs/14 §Chat-template decision).
+
+
+## 6. Paper structure as the user sees it (2026-09-15 19:3x, for skipjack's review)
+
+SR-Agent-Llama (no append) is the main model, with three main parts:
+1. **General capability is intact** — the four benchmarks above (MMLU knowledge, IFEval instruction following,
+   MMLU-Pro + BBH reasoning), parity with the base on every settled row; Meta-SecAlign-8B loses 4.6 IFEval points on
+   the same base.
+2. **Static attacks (AgentDojo)** — ASR in the same class as Meta-SecAlign-8B (1.26 vs 0.95) with better Benign /
+   Under-Attack utility (§1).
+3. **Adaptive attacks (RL-Hammer)** — clearly better than Meta-SecAlign-8B (max-over-runs 32 % vs 80 %, base 99 %),
+   attributed to the reflection / reasoning step (§1, docs/12).
+Supplementary: the Qwen3 family on AgentDojo and RL-Hammer (§2), plus the protocol notes in §4.
+Open items: BBH-relaxed number; the docs/12 variance caveat must accompany every RL-Hammer figure.
