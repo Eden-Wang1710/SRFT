@@ -98,6 +98,28 @@ def pick(root, tag, task):
     return None, runs
 
 
+def official_mmlu_pro(root, tag, prefix):
+    """MMLU-Pro re-scored from the logged samples with the benchmark's official three-tier extraction
+    (user decision 2026-09-15: both models are reported this way; lm-eval's single regex goes to the appendix).
+    Returns (score, stderr, n) or None when no samples are logged for (tag, prefix)."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from score_mmlu_pro_official import extract_official
+    n = c = 0
+    for f in glob.glob(os.path.join(root, "samples", tag, "*", f"samples_{prefix}_*.jsonl")):
+        sub = os.path.basename(f)[len(f"samples_{prefix}_"):]
+        if prefix == "mmlu_pro" and sub.startswith("cot_"):
+            continue
+        for l in open(f):
+            r = json.loads(l)
+            ans, _ = extract_official(r["resps"][0][0])
+            n += 1
+            c += ans == str(r["target"]).strip()
+    if not n:
+        return None
+    p = c / n
+    return 100 * p, 100 * math.sqrt(p * (1 - p) / n), n
+
+
 def fmt(x, w=6):
     return " " * w if x is None or (isinstance(x, float) and math.isnan(x)) else f"{x:{w}.2f}"
 
@@ -115,6 +137,15 @@ def main():
             picks[(tag, task)] = r
             strays += [(tag, o) for o in other]
 
+    # MMLU-Pro: replace lm-eval's single-regex score by the official extraction wherever samples are logged
+    for tag, task in (("base", "mmlu_pro"), ("srllama", "mmlu_pro"), ("srllama", "mmlu_pro_cot")):
+        r, o = picks.get((tag, task)), official_mmlu_pro(args.dir, tag, task)
+        if r and o:
+            k = r["keys"][0]
+            r["vals"][k], r["errs"][k], r["score"] = o[0], o[1], o[0]
+            r["official"] = True
+    print("MMLU-Pro rows below use the OFFICIAL three-tier extraction re-scored from the logged samples "
+          "(marked 'official' in the provenance); lm-eval's own regex numbers are in docs/14.\n")
     print("Check 1 — does OUR base reproduce the published Llama-3.1-8B-Instruct row?")
     print(f"  (tolerance {args.tol:.1f} points; MMLU 68 vs 72 is the user's stated example of acceptable)\n")
     print(f"  {'task':<10} {'published':>9} {'our base':>9} {'delta':>7}   verdict   (IFEval = mean of its 4 sub-metrics)")
@@ -193,7 +224,8 @@ def main():
             if r is None:
                 continue
             print(f"  {tag:<8} {LABEL[task]:<10} {r['date']}  template={'on ' if r['template'] else 'off'}"
-                  f"  items={r['items']:<6} limit={str(r['limit']):<6} metrics={','.join(k.split(',')[0] for k in r['keys'])}")
+                  f"  items={r['items']:<6} limit={str(r['limit']):<6} metrics={','.join(k.split(',')[0] for k in r['keys'])}"
+                  f"{'  scorer=official three-tier extraction' if r.get('official') else ''}")
 
     if strays:
         print("\nOther results files present but NOT used (wrong template setting for the protocol)")
