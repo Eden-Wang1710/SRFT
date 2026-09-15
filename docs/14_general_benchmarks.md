@@ -64,8 +64,14 @@ instead of re-running Meta-SecAlign on these benchmarks. The user's stated examp
 |---|---|---|
 | MMLU | 72.0 | 68.00, off by 4.0, comparable |
 | MMLU-Pro | 46.5 | pending |
-| IFEval (inst-loose) | 79.1 | pending |
+| IFEval (mean of 4) | 79.1 | **79.26, off by 0.16** |
 | BBH | 71.9 | pending |
+
+**IFEval metric convention (settled 2026-09-15).** IFEval reports four sub-metrics and the published 79.1 is
+their **mean**, not any one of them. Our four are prompt-strict 73.01, inst-strict 81.06, prompt-loose 78.19,
+inst-loose 84.77; their mean is 79.26, which lands 0.16 from the published figure, while inst-loose alone is
+5.67 high and the two-strict mean is 2.07 low. So the headline for check 1 is the mean, and check 2 compares
+all four sub-metrics separately, because a mean of four correlated metrics has no honest standard error.
 
 Caveat on MMLU-Pro for check 1 only: we run 100 items per subject, 1,400 of the full 12,032, so our MMLU-Pro
 is a subsample and a few points of disagreement with the published 46.5 are expected from sampling alone.
@@ -94,7 +100,8 @@ Off-protocol for the generative tasks; retained so both configurations exist.
 |---|---|---|
 | mmlu acc | 68.00 | 67.63 |
 | mmlu_pro exact_match | 41.86 | **43.29** |
-| ifeval inst_level_loose | 61.99 | (never finished) |
+| ifeval mean of 4 | 53.28 | (never finished) |
+| ifeval inst_level_loose | 61.99 | |
 | ifeval inst_level_strict | 58.15 | |
 | ifeval prompt_level_loose | 48.98 | |
 | ifeval prompt_level_strict | 43.99 | |

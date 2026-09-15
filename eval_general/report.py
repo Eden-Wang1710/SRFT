@@ -19,14 +19,17 @@ import argparse, glob, json, math, os, sys
 REFERENCE = {"mmlu": 72.0, "mmlu_pro": 46.5, "ifeval": 79.1, "bbh_cot_fewshot": 71.9}
 # Protocol: does the canonical run use --apply_chat_template?  (docs/14 "Chat-template decision")
 WANT_TEMPLATE = {"mmlu": False, "mmlu_pro": True, "ifeval": True, "bbh_cot_fewshot": True}
-# Primary metric key per task. IFEval's published 79.1 is the instruction-level loose score.
-METRIC = {
-    "mmlu": "acc,none",
-    "mmlu_pro": "exact_match,custom-extract",
-    "ifeval": "inst_level_loose_acc,none",
-    "bbh_cot_fewshot": "exact_match,none",
+# Metrics reported per task. IFEval has four and the published 79.1 is their MEAN: our four are
+# 73.01 / 81.06 / 78.19 / 84.77, mean 79.26, which lands 0.16 from the published figure while no single
+# sub-metric does (inst-loose alone is 5.67 high). So the headline for IFEval is the mean, and check 2
+# compares all four separately, since a mean has no honest standard error.
+METRICS = {
+    "mmlu": ["acc,none"],
+    "mmlu_pro": ["exact_match,custom-extract"],
+    "ifeval": ["prompt_level_strict_acc,none", "inst_level_strict_acc,none",
+               "prompt_level_loose_acc,none", "inst_level_loose_acc,none"],
+    "bbh_cot_fewshot": ["exact_match,none"],
 }
-EXTRA = {"ifeval": ["inst_level_strict_acc,none", "prompt_level_loose_acc,none", "prompt_level_strict_acc,none"]}
 TASKS = ["mmlu", "mmlu_pro", "ifeval", "bbh_cot_fewshot"]
 LABEL = {"mmlu": "MMLU", "mmlu_pro": "MMLU-Pro", "ifeval": "IFEval", "bbh_cot_fewshot": "BBH"}
 
@@ -43,22 +46,24 @@ def load(path):
     d = json.load(open(path))
     task = os.path.basename(os.path.dirname(os.path.dirname(path)))
     a = agg(d, task)
-    key = METRIC[task]
-    if key not in a:  # fall back to the only non-stderr float present
-        cands = [k for k, v in a.items() if isinstance(v, float) and "stderr" not in k]
-        key = cands[0] if cands else None
+    keys = [k for k in METRICS[task] if k in a]
+    if not keys:  # fall back to whatever non-stderr floats are present
+        keys = [k for k, v in a.items() if isinstance(v, float) and "stderr" not in k][:1]
+    vals = {k: 100 * a[k] for k in keys}
+    errs = {k: 100 * a.get(k.replace(",", "_stderr,"), float("nan")) for k in keys}
     n = d.get("n-samples", {})
     return {
         "path": path,
         "task": task,
         "template": d.get("chat_template_sha") is not None,
-        "score": 100 * a[key] if key else None,
-        "stderr": 100 * a.get(key.replace(",", "_stderr,"), float("nan")) if key else float("nan"),
-        "key": key,
+        "vals": vals,
+        "errs": errs,
+        "keys": keys,
+        # headline = the mean across reported metrics; for every task but IFEval that is the single metric
+        "score": sum(vals.values()) / len(vals) if vals else None,
         "items": sum(v.get("effective", 0) for v in n.values()),
         "limit": d.get("config", {}).get("limit"),
         "date": os.path.basename(path)[8:27],
-        "extra": {k: 100 * a[k] for k in EXTRA.get(task, []) if k in a},
     }
 
 
@@ -91,7 +96,7 @@ def main():
 
     print("Check 1 — does OUR base reproduce the published Llama-3.1-8B-Instruct row?")
     print(f"  (tolerance {args.tol:.1f} points; MMLU 68 vs 72 is the user's stated example of acceptable)\n")
-    print(f"  {'task':<10} {'published':>9} {'our base':>9} {'delta':>7}   verdict")
+    print(f"  {'task':<10} {'published':>9} {'our base':>9} {'delta':>7}   verdict   (IFEval = mean of its 4 sub-metrics)")
     for task in TASKS:
         r = picks[("base", task)]
         ref = REFERENCE[task]
@@ -102,25 +107,32 @@ def main():
         v = "comparable" if abs(d) <= args.tol else f"OFF by {abs(d):.1f} — do not cite their defended row"
         print(f"  {LABEL[task]:<10} {ref:9.1f} {r['score']:9.2f} {d:+7.2f}   {v}")
 
-    print("\nCheck 2 — does SR-Agent-Llama lose general ability vs OUR base? (same harness config)\n")
-    print(f"  {'task':<10} {'base':>9} {'SR-Agent':>9} {'delta':>7} {'2*se':>6}   verdict")
+    print("\nCheck 2 — does SR-Agent-Llama lose general ability vs OUR base? (same harness config)")
+    print("  IFEval is shown per sub-metric; parity must hold on each.\n")
+    print(f"  {'task':<10} {'metric':<22} {'base':>8} {'SR-Agent':>8} {'delta':>7} {'2*se':>6}   verdict")
     for task in TASKS:
         b, s = picks[("base", task)], picks[("srllama", task)]
         if b is None or s is None:
             have = "base only" if b else ("SR only" if s else "neither")
-            print(f"  {LABEL[task]:<10} {fmt(b['score'] if b else None,9)} {fmt(s['score'] if s else None,9)} {'':>7} {'':>6}   pending ({have})")
+            print(f"  {LABEL[task]:<10} {'':<22} {fmt(b['score'] if b else None,8)} {fmt(s['score'] if s else None,8)} {'':>7} {'':>6}   pending ({have})")
             continue
-        d = s["score"] - b["score"]
-        se2 = 2 * math.sqrt(b["stderr"] ** 2 + s["stderr"] ** 2) if not math.isnan(b["stderr"]) else float("nan")
-        if math.isnan(se2):
-            v = "no stderr reported"
-        elif abs(d) <= se2:
-            v = "PARITY (inside 2 se)"
-        else:
-            v = ("DROP" if d < 0 else "gain") + f" of {abs(d):.2f}, outside 2 se"
-        print(f"  {LABEL[task]:<10} {b['score']:9.2f} {s['score']:9.2f} {d:+7.2f} {fmt(se2,6)}   {v}")
         if b["items"] != s["items"]:
-            print(f"  {'':<10} !! item counts differ: base {b['items']} vs SR {s['items']} — not comparable")
+            print(f"  {LABEL[task]:<10} !! item counts differ: base {b['items']} vs SR {s['items']} — NOT comparable")
+            continue
+        for k in b["keys"]:
+            if k not in s["vals"]:
+                continue
+            d = s["vals"][k] - b["vals"][k]
+            se2 = 2 * math.sqrt(b["errs"][k] ** 2 + s["errs"][k] ** 2)
+            if math.isnan(se2):
+                v = "no stderr reported"
+            elif abs(d) <= se2:
+                v = "PARITY (inside 2 se)"
+            else:
+                v = ("DROP" if d < 0 else "gain") + f" of {abs(d):.2f}, outside 2 se"
+            print(f"  {LABEL[task]:<10} {k.split(',')[0]:<22} {b['vals'][k]:8.2f} {s['vals'][k]:8.2f} {d:+7.2f} {fmt(se2,6)}   {v}")
+        if len(b["keys"]) > 1:
+            print(f"  {'':<10} {'mean of the above':<22} {b['score']:8.2f} {s['score']:8.2f} {s['score']-b['score']:+7.2f}")
 
     print("\nProvenance of every number above")
     for task in TASKS:
@@ -128,9 +140,8 @@ def main():
             r = picks[(tag, task)]
             if r is None:
                 continue
-            extra = "  " + " ".join(f"{k.split(',')[0]}={v:.2f}" for k, v in r["extra"].items()) if r["extra"] else ""
             print(f"  {tag:<8} {LABEL[task]:<10} {r['date']}  template={'on ' if r['template'] else 'off'}"
-                  f"  items={r['items']:<6} limit={str(r['limit']):<6} metric={r['key']}{extra}")
+                  f"  items={r['items']:<6} limit={str(r['limit']):<6} metrics={','.join(k.split(',')[0] for k in r['keys'])}")
 
     if strays:
         print("\nOther results files present but NOT used (wrong template setting for the protocol)")
