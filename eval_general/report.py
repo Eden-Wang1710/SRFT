@@ -162,6 +162,11 @@ def main():
         print(f"  {LABEL[var]:<13} knob: {knob}")
         for label, task in (("default", default), ("variant", var)):
             b, s = picks[("base", task)], picks[("srllama", task)]
+            # User decision 2026-09-15: the base is NOT re-run under the variants (its default row already matches
+            # the published numbers), so the SR variant row is compared against the base's DEFAULT row.
+            if label == "variant" and b is None and picks[("base", default)] is not None:
+                b = picks[("base", default)]
+                label = "variant*"
             if b is None or s is None:
                 have = "base only" if b else ("SR only" if s else "neither")
                 print(f"  {'':<13} {label:<9} {fmt(b['score'] if b else None,8)} {fmt(s['score'] if s else None,8)} {'':>7} {'':>6}   pending ({have})")
@@ -178,6 +183,8 @@ def main():
         if bd and bv:
             print(f"  {'':<13} base itself moves {bv['score'] - bd['score']:+.2f} under the variant "
                   f"(a large move would mean the knob changes the benchmark, not just the extraction)")
+        elif bd:
+            print(f"  {'':<13} * base not re-run under the variant (user decision): SR-variant is compared to the base DEFAULT row")
 
     print("\nProvenance of every number above")
     for task in TASKS + list(VARIANTS):

@@ -370,9 +370,15 @@ request cache on; BBH 30 h limit since the responses are no longer cut short, MM
 
 | jobid | run | status |
 |---|---|---|
-| 3060600 | base bbh_cot_fewshot_relaxed | PENDING |
-| 3060601 | base mmlu_pro_cot | PENDING |
+| 3060600 | base bbh_cot_fewshot_relaxed | CANCELLED 12:5x — user: the base is not re-run |
+| 3060601 | base mmlu_pro_cot | CANCELLED 12:5x — same |
 | 3060602 | srllama bbh_cot_fewshot_relaxed | PENDING |
 | 3060603 | srllama mmlu_pro_cot | PENDING |
 
-Results land in `eval_general/<tag>/<variant>/` and `report.py` check 3 prints them next to the default rows.
+**User decision (2026-09-15 12:5x): the base is NOT re-run under the variants.** Its default row already reproduces
+the published Llama-3.1-8B-Instruct numbers (check 1), so the SR-variant rows are compared against the base's
+DEFAULT rows (45.64 / 71.23); `report.py` check 3 marks such rows `variant*`. Caveat to keep in mind when reading
+them: the knobs could in principle lift the base too (it has 411 `no_phrase` BBH items of its own), so an SR-variant
+number at parity with the base default is a lower bound on the base's own variant score — state it that way.
+
+Results land in `eval_general/srllama/<variant>/` and `report.py` check 3 prints them next to the default rows.
