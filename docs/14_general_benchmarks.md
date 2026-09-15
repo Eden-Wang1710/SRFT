@@ -100,7 +100,7 @@ Check 2 is the result we report. Check 1 only decides whether we may also quote 
 | IFEval inst-strict | 81.06 | 81.89 | +0.84 |
 | IFEval prompt-loose | 78.19 | 77.82 | -0.37 |
 | IFEval prompt-strict | 73.01 | 74.31 | +1.29 |
-| BBH CoT (3-shot, template) | **71.23** | running 3057193 | |
+| BBH CoT (3-shot, template) | **71.23** | **64.26** | **-6.97, outside 2 se = 1.45 — the SECOND FAILURE** |
 
 ### Archived no-template run (`eval_general_nochat/`, kept deliberately)
 Off-protocol for the generative tasks; retained so both configurations exist.
@@ -133,7 +133,7 @@ curves are unaffected.
 | 3057188 | base ifeval, template | COMPLETED — inst-loose 84.77 / inst-strict 81.06 / prompt-loose 78.19 / prompt-strict 73.01 |
 | 3057189 | base bbh, template | COMPLETED — 71.23 exact_match,get-answer (stderr 0.51), 6:37 |
 | 3057192 | srllama ifeval, template | COMPLETED — 84.77 / 81.89 / 77.82 / 74.31 |
-| 3057193 | srllama bbh, template | RUNNING |
+| 3057193 | srllama bbh, template | COMPLETED 10:52 — 64.26 exact_match,get-answer (stderr 0.52) |
 | 3057328/3057329 | base/srllama mmlu_pro, template | RUNNING (started 05:35/05:39) |
 
 Queue note: fairshare is exhausted (EffectvUsage 1.0, Priority 1), so jobs start only when a slot frees.
@@ -165,7 +165,8 @@ Two deviations found in the MMLU-Pro pair, which was resubmitted with a plain `e
 ## The MMLU-Pro drop — the one check-2 failure (2026-09-15)
 
 SR-Agent-Llama scores **40.86 against the base's 45.64, a 4.79-point drop against a 2 se bar of 3.67.**
-This is the only benchmark of the four that fails check 2, and it needs an explanation before it is reported.
+(BBH, finished later the same day, fails check 2 as well — see the next section. The two failures are the
+two tasks scored by extracting an answer string from free-form CoT, which is the pattern that matters.)
 
 **The drop is not spread across subjects — it is almost entirely math.**
 
@@ -230,3 +231,51 @@ reported 70-72. The no-template run missed IFEval by 17 points.
 `reasalign_repro_A/B` (3057398/3057399, started 2026-09-15 ~00:00, c2-gpu-001) run under the same
 `li.hao` account but were submitted by someone else. They compete for the account's GPU allocation, so
 the pending lm-eval jobs start later than the queue position alone would suggest. Do not cancel them.
+
+## The BBH drop — the second check-2 failure (2026-09-15)
+
+`srllama bbh` (3057193, 10 h 52, all 6,511 items) finished at 11:46: **64.26 vs the base's 71.23, a
+6.97-point drop against a 2 se bar of 1.45.** So two of the four benchmarks fail check 2 — and the two that
+fail are exactly the two scored by **extracting an answer string out of free-form chain-of-thought**
+(BBH `get-answer`, MMLU-Pro `custom-extract`), while the two that pass are the loglikelihood one (MMLU) and
+the one scored by programmatic format compliance with no answer extraction at all (IFEval).
+
+**The drop is concentrated in a handful of subtasks, as on MMLU-Pro.** SR minus base, 27 subtasks:
+
+| subtask | base | SR | delta |
+|---|---|---|---|
+| tracking_shuffled_objects_seven_objects | 83.2 | 12.4 | **-70.8** |
+| penguins_in_a_table | 82.2 | 51.4 | **-30.8** |
+| reasoning_about_colored_objects | 70.0 | 48.4 | -21.6 |
+| geometric_shapes | 54.8 | 36.8 | -18.0 |
+| snarks | 72.5 | 55.1 | -17.4 |
+| disambiguation_qa / date_understanding / tracking_shuffled_objects_five | | | -10.8 / -9.6 / -9.6 |
+| 14 more | | | -8.8 to +0.0 |
+| hyperbaton, logical_deduction_three, sports_understanding, multistep_arithmetic_two, temporal_sequences, navigate | | | +0.8 to +7.2 |
+
+SR is lower in 20 of 27 subtasks, but the top five carry **-5.9 of the -6.97 mean**. A uniform loss of
+reasoning ability would not look like this; `tracking_shuffled_objects_seven_objects` collapsing from 83.2 to
+12.4 while its three-object version only moves 92.8 → 90.4 is a length/format signature, not a knowledge one —
+the seven-object variant is the longest chain of thought in the set.
+
+**The likely mechanism, and it is sharper than on MMLU-Pro: the stop strings.** The task's generation kwargs
+(read from the results JSON) are
+
+    max_gen_toks: 1024, until: ["</s>", "Q", "\n\n"], do_sample: false, temperature: 0.0
+
+`"\n\n"` means **the response is cut at the first blank line**. A few-shot CoT answer that runs as one
+paragraph and ends in "So the answer is (X)" survives; a model that opens with a reflective preamble, or
+breaks its reasoning into paragraphs or a bulleted list, is truncated before it ever emits the answer string
+and scores zero however correct the reasoning was. The SR-Agent LoRA is trained on agentic trajectories in
+exactly this chat format, so a multi-paragraph / reflective register is precisely what it would have learned.
+`"Q"` is also a bare-substring stop, so any capital Q in the output ends it.
+
+This is the same class of explanation as the MMLU-Pro math finding and now has two independent instances.
+**Diagnostic to run: `LOG_SAMPLES=1` on the worst subtasks** (`tracking_shuffled_objects_seven_objects`,
+`penguins_in_a_table`) for both models, then count, over SR's failures, how many responses contain no answer
+string at all (truncated / never emitted) versus how many extract an answer that is simply wrong. If the
+first count dominates, the honest report is that the *extraction protocol* penalises the SR model's output
+style, and the fix for the paper is to report a regex-tolerant or stop-string-relaxed variant alongside the
+default one — not to claim parity on the default.
+
+Until that diagnostic returns, report BBH as a drop under investigation, exactly as MMLU-Pro.
