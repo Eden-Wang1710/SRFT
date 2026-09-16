@@ -79,3 +79,13 @@ Both `env/skipjack.sh` and `env/washu.sh` export `HF_HUB_OFFLINE=1` (Qwen3-8B is
    (`PARTS=... bash agentdojo/scripts/submit_eval_sdL2.sh smoke_<date> <paper LoRA>` and cancel after the first shard finishes, or run
    `scripts/eval_parallel.py --suite banking --attack important_instructions --injection-tasks injection_task_0 --nproc 1 --logdir runs/smoke`).
 7. Log what was verified in `09_cluster_washu.md` and `99_changelog.md`, push.
+
+## Two sessions on one checkout (added 2026-09-16)
+On WashU two Claude sessions can run in the same working tree. A `git checkout <branch>` by one of them silently moves
+the other's commits onto that branch (happened 2026-09-16 01:18: an lm-eval commit landed on `exp/agentdyn`).
+Rules: (1) run `git branch --show-current` before every commit and stop if it is not the branch you expect;
+(2) never switch the shared tree back — the other session's jobs read scripts from it; (3) to commit to `main`
+while the tree is on another branch, use a worktree: `git worktree add ../SRFT-main-wt main`, edit/commit/push
+there, `git worktree remove ../SRFT-main-wt` when done; (4) if a commit did land on the wrong branch, re-apply it on
+the right one and move the wrong branch's ref back with `git update-ref` (no `reset --hard` in a tree someone else
+is working in).

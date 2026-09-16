@@ -543,3 +543,18 @@ header, no template applied, no BOS added), gen kwargs `until: []`, 1,024 tokens
 "The best answer is X." and `strict-match` extracts the letter (4/5 correct). Full runs submitted: base **3064721** and
 srllama **3064722** × `meta_mmlu_0shot_instruct` (14,042 items, 12 h limit, `-p general-gpu`, denylist). The other three Meta
 configs (`meta_mmlu_pro_instruct`, `meta_bbh`, `meta_ifeval`) are ready to submit on the user's decision.
+## BBH-relaxed result (job 3060602, 11 h 04, 6,511 items, lm-eval's own `get-answer` filter) — 2026-09-16 01:2x
+
+**SR-Agent-Llama 68.68 ±0.51 vs base default 71.23 ±0.51: −2.55, 2 se 1.45 — still outside 2 se, but 64 % of the
+default-protocol gap (−6.97) was the blank-line truncation.** Same generation as the default run except that the
+harness no longer stops at `"\n\n"` (their published recipe, `meta_bbh`, uses the same `"\n\nQ: "` stop — see the
+vendored configs), so subtasks that never hit a blank line are bit-identical between the two SR runs.
+
+Where the truncation was (SR default → SR relaxed, base in brackets): tracking_shuffled_objects_seven **12.4 → 80.8**
+(83.2), penguins_in_a_table **51.4 → 78.1** (82.2), snarks 55.1 → 69.1 (72.5), reasoning_about_colored_objects
+48.4 → 55.6 (70.0), date_understanding 58.0 → 63.6 (67.6), movie_recommendation 57.2 → 61.2 (66.0).
+
+What remains below the base after the fix: geometric_shapes 38.0 (54.8, −16.8), reasoning_about_colored_objects
+55.6 (70.0, −14.4), disambiguation_qa 54.4 (64.4, −10.0), tracking_shuffled_objects_five 80.0 (89.6, −9.6); seven
+subtasks are above the base (hyperbaton +7.2, logical_deduction_three +6.4, sports_understanding +3.6, …).
+Per-item classification of the residual (extraction vs genuinely wrong) follows from the sample replay.

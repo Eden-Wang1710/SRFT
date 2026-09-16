@@ -124,7 +124,7 @@ they were produced by that paper's own harness, so they are comparable to our ba
 | MMLU (0-shot, loglikelihood) | world knowledge | 72.0 | 71.7 | 68.00 ±0.37 | **67.63** ±0.38 (−0.37, parity) |
 | MMLU-Pro (5-shot CoT, official extraction) | knowledge + reasoning | 46.5 | 46.7 | 47.50 | **45.79** (CoT prefill; −1.71, 2 se 3.77, parity) — default protocol 43.79 in the appendix |
 | IFEval (0-shot, mean of 4 sub-metrics) | instruction following | 79.1 | **74.5** (−4.6 vs its base) | 79.26 | **79.70** (+0.44; parity on all four sub-metrics) |
-| BBH (3-shot CoT, lm-eval filter) | multi-step reasoning | 71.9 | 70.9 | 71.23 ±0.51 | *pending* — relaxed-stop run 3060602 (default-protocol 64.26 is a truncation artifact, appendix) |
+| BBH (3-shot CoT, lm-eval filter, stop `\n\nQ:` as in Meta's recipe) | multi-step reasoning | 71.9 | 70.9 | 71.23 ±0.51 | **68.68** ±0.51 (−2.55, 2 se 1.45 — the one row still outside 2 se; default-protocol 64.26 with the bare `\n\n` stop is a truncation artifact, appendix) |
 
 **Table presentation fixed by the user (2026-09-15 19:3x)**: the SR-Agent MMLU-Pro cell is the CoT-prefill number; the
 BBH cell is left empty until the relaxed-stop run lands; default-protocol numbers go to the appendix with the diagnoses.
