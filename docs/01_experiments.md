@@ -298,15 +298,15 @@ change before spending GPU time on the 560 attacked cases.
 | run | Benign ↑ | UA ↑ | ASR ↓ | status |
 |---|---|---|---|---|
 | ADYN-L-base | **11.67** (7/60) | — | — | benign gate FINAL 2026-09-16 (jobs 3064895–97; shopping 5.00 / github 25.00 / dailylife 5.00) |
-| ADYN-L-v3base-noappend | **10.71** (6/56) | — | — | benign gate 2026-09-16, 4 tasks still resuming (shopping 5.56 / github 21.05 / dailylife 5.26) |
+| ADYN-L-v3base-noappend | **10.00** (6/60) | — | — | benign gate FINAL 2026-09-16 (jobs 3064892–94 + resume 3064955–57; shopping 5.00 / github 20.00 / dailylife 5.00) |
 
-**Gate verdict: FAILED — the benchmark does not discriminate at 8B.** The two rows differ by one task (11.67 vs 10.71),
+**Gate verdict: FAILED — the benchmark does not discriminate at 8B.** The two rows differ by one task (7/60 vs 6/60),
 well inside the ≤3–4 point noise band recorded in `docs/06`. Failure modes (benign):
 
 | | success | wrong answer / early stop | ran out of turns | died at step 1 (parser / no call) |
 |---|---|---|---|---|
 | ADYN-L-base | 7 | 19 | 17 | **14 + 3** |
-| ADYN-L-v3base-noappend | 6 | 35 | 15 | **0** |
+| ADYN-L-v3base-noappend | 6 | 36 | 18 | **0** |
 
 SR-Agent-Llama loses nothing to the parser (it was trained on the `<function=…>` format), so its score is a genuine
 capability measurement; the base's 11.67 is inflated in the opposite direction — under a tolerant parser the base would
