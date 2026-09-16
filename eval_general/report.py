@@ -120,6 +120,27 @@ def official_mmlu_pro(root, tag, prefix):
     return 100 * p, 100 * math.sqrt(p * (1 - p) / n), n
 
 
+def tolerant_bbh(root, tag, prefix):
+    """BBH re-scored from the logged samples with the tolerant extractor of analyze_samples.py (last "answer is",
+    case/markdown/parenthesis-tolerant, same rule for both models). User decision 2026-09-16: the reported BBH row is
+    the SR relaxed-stop run vs the base default run, both under this scorer (73.17 vs 71.17)."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from analyze_samples import robust_extract, robust_match
+    n = c = 0
+    for f in glob.glob(os.path.join(root, "samples", tag, "*", f"samples_{prefix}_*.jsonl")):
+        sub = os.path.basename(f)[len(f"samples_{prefix}_"):]
+        if prefix == "bbh_cot_fewshot" and sub.startswith("relaxed_"):
+            continue
+        for l in open(f):
+            r = json.loads(l)
+            n += 1
+            c += robust_match(robust_extract(r["resps"][0][0], str(r["target"])), str(r["target"]))
+    if not n:
+        return None
+    p = c / n
+    return 100 * p, 100 * math.sqrt(p * (1 - p) / n), n
+
+
 def fmt(x, w=6):
     return " " * w if x is None or (isinstance(x, float) and math.isnan(x)) else f"{x:{w}.2f}"
 
@@ -144,8 +165,19 @@ def main():
             k = r["keys"][0]
             r["vals"][k], r["errs"][k], r["score"] = o[0], o[1], o[0]
             r["official"] = True
+    strict = {k: (dict(v) if v else None) for k, v in picks.items()}   # lm-eval's own numbers, for check 3
+    # BBH final row (user decision 2026-09-16): base default run vs SR relaxed-stop run, both under the tolerant scorer
+    tb = tolerant_bbh(args.dir, "base", "bbh_cot_fewshot")
+    ts = tolerant_bbh(args.dir, "srllama", "bbh_cot_fewshot_relaxed")
+    if tb and ts and picks[("base", "bbh_cot_fewshot")] and picks[("srllama", "bbh_cot_fewshot_relaxed")]:
+        for tag, t, src in (("base", tb, picks[("base", "bbh_cot_fewshot")]), ("srllama", ts, picks[("srllama", "bbh_cot_fewshot_relaxed")])):
+            r = dict(src); k = r["keys"][0]
+            r["vals"] = {k: t[0]}; r["errs"] = {k: t[1]}; r["score"] = t[0]; r["tolerant"] = True
+            picks[(tag, "bbh_cot_fewshot")] = r
     print("MMLU-Pro rows below use the OFFICIAL three-tier extraction re-scored from the logged samples "
-          "(marked 'official' in the provenance); lm-eval's own regex numbers are in docs/14.\n")
+          "(marked 'official' in the provenance); lm-eval's own regex numbers are in docs/14.")
+    print("BBH rows below are the base default run vs the SR relaxed-stop run, both under the tolerant extractor "
+          "(marked 'tolerant'); lm-eval's own numbers appear in check 3.\n")
     print("Check 1 — does OUR base reproduce the published Llama-3.1-8B-Instruct row?")
     print(f"  (tolerance {args.tol:.1f} points; MMLU 68 vs 72 is the user's stated example of acceptable)\n")
     print(f"  {'task':<10} {'published':>9} {'our base':>9} {'delta':>7}   verdict   (IFEval = mean of its 4 sub-metrics)")
@@ -192,11 +224,11 @@ def main():
     for var, (default, knob) in VARIANTS.items():
         print(f"  {LABEL[var]:<13} knob: {knob}")
         for label, task in (("default", default), ("variant", var)):
-            b, s = picks[("base", task)], picks[("srllama", task)]
+            b, s = strict[("base", task)], strict[("srllama", task)]
             # User decision 2026-09-15: the base is NOT re-run under the variants (its default row already matches
             # the published numbers), so the SR variant row is compared against the base's DEFAULT row.
-            if label == "variant" and b is None and picks[("base", default)] is not None:
-                b = picks[("base", default)]
+            if label == "variant" and b is None and strict[("base", default)] is not None:
+                b = strict[("base", default)]
                 label = "variant*"
             if b is None or s is None:
                 have = "base only" if b else ("SR only" if s else "neither")
@@ -210,7 +242,7 @@ def main():
             se2 = 2 * math.sqrt(b["errs"][k] ** 2 + s["errs"][k] ** 2)
             v = "PARITY (inside 2 se)" if abs(d) <= se2 else ("DROP" if d < 0 else "gain") + f" of {abs(d):.2f}, outside 2 se"
             print(f"  {'':<13} {label:<9} {b['vals'][k]:8.2f} {s['vals'][k]:8.2f} {d:+7.2f} {fmt(se2,6)}   {v}")
-        bd, bv = picks[("base", default)], picks[("base", var)]
+        bd, bv = strict[("base", default)], strict[("base", var)]
         if bd and bv:
             print(f"  {'':<13} base itself moves {bv['score'] - bd['score']:+.2f} under the variant "
                   f"(a large move would mean the knob changes the benchmark, not just the extraction)")
@@ -225,7 +257,8 @@ def main():
                 continue
             print(f"  {tag:<8} {LABEL[task]:<10} {r['date']}  template={'on ' if r['template'] else 'off'}"
                   f"  items={r['items']:<6} limit={str(r['limit']):<6} metrics={','.join(k.split(',')[0] for k in r['keys'])}"
-                  f"{'  scorer=official three-tier extraction' if r.get('official') else ''}")
+                  f"{'  scorer=official three-tier extraction' if r.get('official') else ''}"
+                  f"{'  scorer=tolerant extractor (SR = relaxed-stop run)' if r.get('tolerant') else ''}")
 
     if strays:
         print("\nOther results files present but NOT used (wrong template setting for the protocol)")

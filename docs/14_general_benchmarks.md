@@ -565,3 +565,12 @@ tolerant scorer 71.17 vs 73.17 (−2.00, still outside 2 se = 1.45). The genuine
 (SVG-path shape recognition: 38.0 vs 54.8, 145 wrong) and `tracking_shuffled_objects_five` (80.0 vs 89.6);
 `reasoning_about_colored_objects` is pure formatting (57 format-only items; 78.4 vs 76.4 under the tolerant scorer).
 **Conclusion for the paper: BBH is the one row with a small real residual (≈2 points), say so; do not claim parity.**
+
+### BBH FINAL (user decision 2026-09-16 01:4x): tolerant extractor, base 73.17 vs SR-Agent 71.17
+The reported BBH row is the **base default run vs the SR-Agent relaxed-stop run, both scored with the tolerant
+extractor** of `analyze_samples.py` (last "answer is …" in the response, case-insensitive, markdown/parentheses/trailing
+punctuation stripped, option letter compared; word/number targets compared after the same normalisation). One rule for
+both models; the base itself gains +1.94 from it (126 of its answers are "The answer is (X)" with a capital T, which
+lm-eval's case-sensitive regex misses). **73.17 ±0.55 vs 71.17 ±0.56, −2.00, 2 se 1.57 — a small real residual,
+reported as such.** `report.py` now computes these two numbers from the samples and marks them `tolerant` in the
+provenance; lm-eval-strict (71.23 / 68.68) and the truncated default (64.26) are kept in check 3 / the appendix.
