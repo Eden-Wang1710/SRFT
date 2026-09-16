@@ -107,7 +107,27 @@ What the tiny run does **not** cover: memory and throughput at 51.5 B. That is t
 ### Real-scale smoke
 Job **472145** — `-p h200 --gres=gpu:1 -c 6 --mem=48G -t 01:00:00`, `ENV=nemotron`, `NPROC_PER_NODE=1`,
 `EXTRA_ARGS="max_steps=2 max_samples=64 save_strategy=steps save_steps=100000 logging_steps=1 output_dir=saves/_smoke_nemo51b"`.
-Pass criteria: `trainable params: 175,947,776`, two finite-loss steps, no OOM. Result to be filled in here.
+Pass criteria: `trainable params: 175,947,776`, two finite-loss steps, no OOM.
+
+**PASSED 2026-09-16 12:31, `COMPLETED` 0:0 in 1 min 10 s on `gh203` (NVIDIA H200 NVL, 1 GPU).**
+```
+Model config DeciLMConfig ... (tokenizer + weights from snapshot f4d9431910e0)
+trainable params: 175,947,776 || all params: 51,676,962,816 || trainable%: 0.3405
+{'loss': 1.3717, 'grad_norm': 0.3239, 'epoch': 0.06}
+{'loss': 1.3230, 'grad_norm': 0.2852, 'epoch': 0.12}
+train_runtime 27.89 s, 13.67 s/it (1 it = per_device 1 x GA 4), 0.287 samples/s
+```
+`all params 51.68 B` proves the full model was materialised (no silent fallback), and the trainable count matches the
+meta-device prediction exactly. Weight load took ~20 s from weka; **no OOM on a 141 GB card**, so the ~118 GB estimate
+above holds (peak GPU memory is not printed by LF, so the headroom is not measured, only bounded).
+
+**Throughput extrapolation for the real run**: 0.287 samples/s × 3,698 trajectories × 3 epochs ≈ **10-11 h on one H200**
+(the 8B took 7 h 27 on one L40S), well inside the 3-day partition limit — so the real training is a single 1-GPU job with
+`gradient_accumulation_steps=16`, exactly like the 8B. Caveat: measured on the first 64 samples, which may be shorter
+than average.
+
+⚠ One trap this run exposed for future monitors: the launcher `cat`s the yaml, so any grep for `Error`/`ImportError`
+over the log matches the *comments in the config file*. Line 14 of this log is a comment, not a failure.
 
 Two submission lessons already paid for (both now in `docs/09`): **b200 is closed to our account**
 (`AllowAccounts=schmidt`) so `-p b200` parks forever at `Reason=PartitionConfig` however many cards are idle; and
