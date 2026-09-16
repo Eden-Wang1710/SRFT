@@ -18,6 +18,7 @@ Read `docs/00_README.md` first, then `docs/01_experiments.md` (the experiment le
 - `docs/10_sync_workflow.md`          — two-cluster workflow: env layer, `env/sb` submission, git branch rules, HF data/ckpt exchange
 - `docs/12_rl_hammer_injecagent.md`   — RL-Hammer adaptive attack on InjecAgent (paper Sec. 5.3): folder layout, how Fig. 2 was produced, porting to Llama
 - `docs/13_iclr_results.md`         — INTEGRATED ICLR RESULTS: Llama as the main family, Qwen supplementary, both benchmarks in one place
+- `docs/15_agentdyn.md`             — AgentDyn (3rd benchmark, arXiv 2602.03117): vendored `SRFT/agentdyn/`, ported Llama pipelines, env `srft_agentdyn`, launcher
 - `docs/99_changelog.md`              — dated log of what was done
 
 Rules for Claude:
