@@ -88,6 +88,7 @@ skipped). All the WashU gotchas from `docs/09_cluster_washu.md` apply (node deny
 | date | what |
 |---|---|
 | 2026-09-15 | branch created; upstream cloned and vendored; Llama pipelines ported; launcher + sbatch + stats copied; env `srft_agentdyn` building. **Nothing run yet.** |
+| 2026-09-16 | **Benign gate FAILED.** base Llama 7/60 = 11.67, SR-Agent-Llama 6/56 = 10.71 — one task apart, inside the noise band. Every 8B-class row on this benchmark (ours + upstream's Meta-SecAlign-8B 5.00 + Llama-3.3-70B 10.00) sits at 5–12 %, while the 70B class is at 53–55 %. The 560 attacked cases were **not** run: at ~11 % benign a low ASR would only mean the agent never reached the injection. Numbers and failure modes in `docs/01` §ADYN; reproduce with `python eval/agentdyn_report.py agentdyn_llama_base agentdyn_srllama_noappend`. |
 
 ## 5. Upstream's Llama numbers are interface artifacts, not capability (measured 2026-09-15)
 

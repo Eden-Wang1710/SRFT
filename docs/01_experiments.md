@@ -297,8 +297,26 @@ change before spending GPU time on the 560 attacked cases.
 
 | run | Benign ↑ | UA ↑ | ASR ↓ | status |
 |---|---|---|---|---|
-| ADYN-L-base | — | — | — | benign gate not yet submitted |
-| ADYN-L-v3base-noappend | — | — | — | benign gate not yet submitted |
+| ADYN-L-base | **11.67** (7/60) | — | — | benign gate FINAL 2026-09-16 (jobs 3064895–97; shopping 5.00 / github 25.00 / dailylife 5.00) |
+| ADYN-L-v3base-noappend | **10.71** (6/56) | — | — | benign gate 2026-09-16, 4 tasks still resuming (shopping 5.56 / github 21.05 / dailylife 5.26) |
+
+**Gate verdict: FAILED — the benchmark does not discriminate at 8B.** The two rows differ by one task (11.67 vs 10.71),
+well inside the ≤3–4 point noise band recorded in `docs/06`. Failure modes (benign):
+
+| | success | wrong answer / early stop | ran out of turns | died at step 1 (parser / no call) |
+|---|---|---|---|---|
+| ADYN-L-base | 7 | 19 | 17 | **14 + 3** |
+| ADYN-L-v3base-noappend | 6 | 35 | 15 | **0** |
+
+SR-Agent-Llama loses nothing to the parser (it was trained on the `<function=…>` format), so its score is a genuine
+capability measurement; the base's 11.67 is inflated in the opposite direction — under a tolerant parser the base would
+rise, not us. The benchmark's own reference points agree that the floor is a scale effect, not a defence effect:
+Meta-SecAlign-8B 5.00, Llama-3.3-70B 10.00, versus Meta-SecAlign-70B 55.00 and GPT-4o 53.33 (all re-derived with
+`agentdyn/eval/agentdyn_report.py` from `runs_upstream_paper/`). Every 8B-class row sits at 5–12 %; the 70B class jumps
+to 55 %.
+
+**Consequence: the 560 attacked cases were NOT run.** With benign utility at ~11 %, a low ASR would only mean the agent
+never reached the injection, so UA/ASR on this benchmark would be uninterpretable for either row.
 
 Smoke (job 3064871, 2026-09-15 22:28, general-short, SR-Agent-Llama × shopping benign, 1 proc): LoRA loaded
 (`exists=True append=False`), trajectories well-formed (`thinking` block + `<function=…>` call), **user_task_0
