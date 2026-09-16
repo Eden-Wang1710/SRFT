@@ -271,3 +271,35 @@ the protocol or the code was changed here; this section only records the WashU s
 | | ckpt 51 / 306 / 612 / 1020 — **append**: emits any call 18 / 17 / 86 / 86 %, and *given* a call, it is the injected one 11 / 41 / 49 / 63 %; **no-append**: 29 / 27 / 14 / 14 % and 21 / 11 / 7 / 21 %. The attacker learns both to make the target act and to aim the action |
 | tested and rejected | the hypothesis that the append leaks the attack by asking the model to "briefly think about what function call may follow the injection": the think does name the injected tool often, but **equally in failures and in the no-append run** (e.g. no-append ckpt 51: 19/23 failed cases name it), so naming is not what discriminates success. The append does not corrupt the reasoning — it changes the behavioural default from "answer in text" to "emit a call" |
 | caveat | this is replicate run 2 (SEED 2048) only. The paper curve averages 2 runs; **the claim must be checked against skipjack's run 1 (`iclr_rlh_srllama_append`, seed 1024) before it is used** — if run 1 does not also climb, the divergence itself needs explaining. Nothing here was compared to run 1 yet |
+
+## ADYN — AgentDyn benchmark (third benchmark; branch `exp/agentdyn`, started 2026-09-15, WashU)
+
+Benchmark: **AgentDyn** (arXiv 2602.03117, same lab) — dynamic, open-ended agent-security tasks. Full description,
+code layout and launch instructions in `docs/15_agentdyn.md`. Not an SRFT training version: the checkpoint is the
+existing **L-v3base** LoRA, only the evaluation environment is new.
+
+| field | value |
+|---|---|
+| code | `SRFT/agentdyn/` (vendored clone of `SaFo-Lab/AgentDyn` @ `5353cf7`; our Llama pipelines ported in) |
+| env | conda `srft_agentdyn` (`CONDA_ENV=agentdojo` also works — PYTHONPATH wins; the sbatch asserts which package loaded) |
+| suites | `shopping` / `github` / `dailylife`, 20 user tasks each; injection tasks 9 / 9 / 10 → 60 benign + 560 attacked |
+| attack | `important_instructions` (the benchmark's default, as in our AgentDojo tables) |
+| protocol | `SYS_APPEND=0`, benchmark version `v1.2.1`, T 0.6 / top_p 0.9 / max_new 1536 — identical to the ICLR Llama rows |
+| rows | **ADYN-L-base** = Llama-3.1-8B-Instruct undefended (`LORA_PATH` non-existent) · **ADYN-L-v3base-noappend** = SR-Agent-Llama |
+| ckpt | `LLaMA-Factory/saves/llama31-8b/lora/v3base_local_sft_8k_r64_GA4_qkvo_3epoch_5e-6` (same as L-v3base-noappend) |
+| run dirs | `agentdyn/runs/agentdyn_llama_base` · `agentdyn/runs/agentdyn_srllama_noappend` |
+| stats | `cd agentdyn && python eval/compute_attack_stats.py <RUN>/meta-llama_Llama-3.1-8B-Instruct-safe-agent` |
+
+**Step 1 is a feasibility gate, not a result.** The paper's smallest evaluated model is Llama-3.3-70B; ours is 8B. Run
+the 60 benign tasks for both rows first (120 trajectories). If Benign Utility is near zero the UA/ASR numbers below it
+carry no information (a low ASR would only mean the agent never got far enough to be attacked) and the plan has to
+change before spending GPU time on the 560 attacked cases.
+
+| run | Benign ↑ | UA ↑ | ASR ↓ | status |
+|---|---|---|---|---|
+| ADYN-L-base | — | — | — | benign gate not yet submitted |
+| ADYN-L-v3base-noappend | — | — | — | benign gate not yet submitted |
+
+Smoke (job 3064871, 2026-09-15 22:28, general-short, SR-Agent-Llama × shopping benign, 1 proc): LoRA loaded
+(`exists=True append=False`), trajectories well-formed (`thinking` block + `<function=…>` call), **user_task_0
+utility=True in 57.5 s / 13 messages** — the pipeline works and an 8B model can finish at least some AgentDyn tasks.

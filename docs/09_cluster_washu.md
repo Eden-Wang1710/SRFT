@@ -101,6 +101,21 @@ not capture whatever actually kills these jobs. Known offenders so far: **`c2-gp
 first time it produces an `ExitCode 0:53 / RaisedSignal:53` with no output file. Re-run the FreeMem scan as well — it catches new offenders —
 but never rely on it alone.
 
+## QOS limits per user (`sacctmgr show qos`, 2026-09-15)
+`squeue` reason **`QOSMaxGRESPerUser`** = the partition's QOS caps concurrent GPUs, not a shortage of free GPUs:
+
+| QOS | per-user cap | meaning |
+|---|---|---|
+| `general-short-qos` | **`gres/gpu=1`**, cpu 218, mem 1744G, 16 jobs | only **one** GPU job at a time on `general-short` — a batch of short jobs there drains **serially**, it does not fan out |
+| `general-gpu-qos` | `gres/gpu=8` | at most 8 GPUs at once across `general-gpu` |
+| `general-cpu-qos` | cpu=128, mem=2T, 100 jobs | |
+| `general-interactive*` / `workshop-qos` | cpu=8, gpu=1, mem=64G | |
+
+Consequence for evals: `general-short` is the right place for a *smoke* or for a queue-free drip, but a fan-out of N
+single-GPU shards must go to `general-gpu,general-preempt-gpu` (cap 8 concurrent GPUs) and wait. Since 2026-09-09 eval
+jobs are resume-safe (one result JSON per task), so a set of `general-short` jobs left to drain serially is a valid,
+if slow, fallback when the big partitions are full.
+
 ## Queue reality (dated)
 - 2026-09-06 23:45: all `general-gpu` (56/56) and `general-preempt-gpu` (37/40) GPUs allocated, **zero pending jobs** — full of long-running jobs,
   not a deep queue; a new 1-GPU job waits until someone's job ends. `general-short` had free GPUs.

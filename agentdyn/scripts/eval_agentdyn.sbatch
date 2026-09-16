@@ -11,10 +11,13 @@
 set -euo pipefail
 SRFT_ROOT="${SRFT_ROOT:-$(d="${SLURM_SUBMIT_DIR:-$PWD}"; while [ ! -f "$d/env/select.sh" ] && [ "$d" != / ]; do d=$(dirname "$d"); done; echo "$d")}"
 source "$SRFT_ROOT/env/select.sh"
-source "$CONDA_SH" && conda activate srft_agentdyn
+# CONDA_ENV: srft_agentdyn is the dedicated env (clone of agentdojo + AgentDyn deps). `agentdojo` also works because
+# PYTHONPATH below wins over the installed package -- the assertion after the cd checks that it really did.
+source "$CONDA_SH" && conda activate "${CONDA_ENV:-srft_agentdyn}"
 cd "$SRFT_ROOT/agentdyn"
 export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}" TOKENIZERS_PARALLELISM=false PYTHONUNBUFFERED=1
 export CUDA_VISIBLE_DEVICES=0
+python -c "import agentdojo,sys,pathlib; f=pathlib.Path(agentdojo.__file__).resolve(); sys.exit(0 if '/agentdyn/' in str(f) else f'WRONG agentdojo package: {f}')"
 MODEL="${MODEL:-LLAMA_3_1_8B_SAFE_AGENT}"
 # A LORA_PATH that does not exist = undefended base Llama (same convention as agentdojo/scripts/eval_sdL2.sbatch).
 export LLAMA_SR_AGENT_LORA_PATH="${LORA_PATH:?}" LLAMA_SR_AGENT_SYS_APPEND="${SYS_APPEND:-0}"
