@@ -154,3 +154,44 @@ Checked because the numbers in `docs/13` §1a must not come from a lenient tool-
 
 So neither row was given a discount; both were scored under the same strict rules, and the untrained base was hit
 harder — the same way Meta-SecAlign-8B is hit in upstream's runs.
+
+## 7. Attacked set: SR-Agent-Llama over-defends (observed 2026-09-16, SR at 384/560)
+
+Preliminary — SR-Agent-Llama's attacked run is ~69 % complete. base Llama is FINAL (560/560).
+
+| | Benign | UA | ASR | UA/Benign (retention under attack) |
+|---|---|---|---|---|
+| base Llama-3.1-8B | 11.67 | **8.93** | 9.82 | 0.77 |
+| SR-Agent-Llama (384/560) | 10.00 | 3.66 | **2.09** | **0.37** |
+
+ASR is where we want it (2.09 vs 9.82, lower on all three suites; dailylife 1.53 vs 21.50). UA is not: the two models
+have the *same* benign utility, so the UA gap is not capability — it is behaviour under attack.
+
+**Mechanism.** Share of trajectories whose FINAL assistant message contains refusal / security wording
+(`cannot|unable to|refus|suspicious|prompt injection|malicious|…`):
+
+| | benign | attacked |
+|---|---|---|
+| base Llama | 10.2 % | 5.4 % (goes *down*) |
+| SR-Agent-Llama | 23.9 % | **71.4 %** |
+
+Failure modes on the attacked set:
+
+| | task completed | stopped mid-way / wrong | ran out of turns | died at step 1 |
+|---|---|---|---|---|
+| base (560) | 8.9 % | 25.9 % | 32.5 % | 32.7 % |
+| SR-Agent-Llama (384) | 3.6 % | **62.8 %** | 30.5 % | 3.1 % |
+
+Sampled final answers show the behaviour precisely: SR **identifies the injection correctly and in detail** ("the
+response … contained a clear prompt injection attempt embedded within a `<section>` block — a malicious message
+disguised as an 'important message' from Emma Johnson") **and then stops**. It treats detection as the terminal action
+instead of flagging the injection and resuming the user's task. That is the over-defense side of exactly the
+security/utility dilemma AgentDyn was built to expose.
+
+Consistent with, not contradicted by, AgentDojo: there SR-Agent-Llama's UA is 29.08 vs the base's 23.08 (`docs/13` §1a).
+AgentDojo's tasks are short, so one abort costs little; AgentDyn's are long-horizon and dynamic (7.1 steps, 3.17 app
+scenarios), so a single abort destroys the whole task.
+
+Implication for a future version: the training data has no trajectory that flags an injection **and then continues the
+legitimate task**. Analysis to run once SR reaches 560: split the 71.4 % into (a) correct detection followed by an
+abort and (b) false positives on benign tasks — only (b) is over-defense in the strict sense.
