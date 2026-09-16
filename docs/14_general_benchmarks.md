@@ -574,3 +574,13 @@ both models; the base itself gains +1.94 from it (126 of its answers are "The an
 lm-eval's case-sensitive regex misses). **73.17 ±0.55 vs 71.17 ±0.56, −2.00, 2 se 1.57 — a small real residual,
 reported as such.** `report.py` now computes these two numbers from the samples and marks them `tolerant` in the
 provenance; lm-eval-strict (71.23 / 68.68) and the truncated default (64.26) are kept in check 3 / the appendix.
+
+## Why every generative run took hours: lm-eval's `batch_size auto` picked batch 1 (found 2026-09-16 09:4x)
+Every generative lm-eval run in this project logged `Determined Largest batch size: 1` (all 26 of them: MMLU-Pro,
+IFEval, BBH, the variants, Meta-MMLU) and ran at 3–9 s/item. The auto-detector probes with the model's full context
+window — 131,072 tokens for Llama-3.1 — so nothing larger than 1 "fits" on an 80 GB H100, and 14k CoT generations
+then run one at a time. Results are unaffected (greedy decoding; MMLU's loglikelihood runs were unaffected anyway),
+only wall-clock: the Meta-MMLU base run needed >12 h at batch 1. Fix: `env/jobs/lmeval.sbatch` gained a `BATCH`
+knob; pass `BATCH=32` for the generative tasks (Meta-SecAlign's own runner used vLLM with batch 512). Greedy outputs
+under left-padded batching can differ from batch-1 outputs by bf16 noise on rare items; that is standard practice
+and is noted here rather than hidden. Validated on a 64-item SR smoke before the Meta-MMLU resubmissions.
