@@ -1,0 +1,62 @@
+### SR-Agent-Nemotron-51B (2026-09-16): the SAME paper recipe as llama31_8b_lora_sft_v3base_local.yaml with only the base model,
+### output_dir and the two memory-only knobs changed. Base = nvidia/Llama-3_1-Nemotron-51B-Instruct (NAS-pruned + distilled from
+### Llama-3.1-70B). Its tokenizer and chat template are byte-identical to meta-llama/Llama-3.1-8B-Instruct (chat_template sha1
+### f15c056603d9, same 256 added tokens), so the dataset and the AgentDojo `local` renderer are reused verbatim.
+###
+### Architecture note (docs/15): model_type `nemotron-nas`, custom code (DeciLMForCausalLM) -> trust_remote_code is REQUIRED.
+### 80 decoder layers, but only 54 carry a real attention block; 18 use a single `linear_attn` projection and 8 have no attention
+### at all. `lora_target: q_proj,k_proj,v_proj,o_proj` therefore attaches to 216 modules in 54/80 layers = 175,947,776 trainable
+### params (0.34 %; the 8B run was 54.5 M = 0.67 %). `linear_attn` is deliberately NOT a LoRA target, so the recipe stays the
+### paper's "q/k/v/o only".
+###
+### Environment: conda env `nemotron` (= llamafactory + transformers==4.51.3). The model's remote code imports
+### NEED_SETUP_CACHE_CLASSES_MAPPING, which transformers removed after 4.5x, so 4.57.1 raises ImportError on load. 4.51.3 works
+### with no patch and is also what the `agentdojo` eval env already uses.
+
+### model
+model_name_or_path: nvidia/Llama-3_1-Nemotron-51B-Instruct
+trust_remote_code: true
+
+### method
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_target: q_proj,k_proj,v_proj,o_proj
+lora_rank: 64
+lora_alpha: 96
+lora_dropout: 0.05
+
+### template (non-reasoning; the <think> reflection is ordinary assistant text)
+template: llama3
+
+### dataset
+dataset: toucan_32B_v3_base_llama_local
+cutoff_len: 8192
+overwrite_cache: true
+preprocessing_num_workers: 8
+
+# loss masking
+train_on_prompt: false
+mask_history: false
+
+### output
+output_dir: saves/nemotron-51b/lora/v3base_local_sft_8k_r64_GA4_qkvo_3epoch_5e-6
+logging_steps: 3
+save_strategy: epoch
+plot_loss: true
+save_total_limit: 10
+overwrite_output_dir: true
+report_to: none
+
+### train
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 4
+learning_rate: 5e-6
+num_train_epochs: 3.0
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+bf16: true
+flash_attn: auto
+
+### memory (the only deviation from the 8B recipe; both are math-neutral, they trade compute for memory)
+gradient_checkpointing: true

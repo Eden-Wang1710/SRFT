@@ -124,3 +124,25 @@ GPUs of the same job work (our RL-Hammer trainings 387056/387058, another user's
 because it looks free. Check: `sacct -N <node> -S <today> -X -o JobID,User,State,Elapsed | grep FAILED`. Workaround: `--exclude=gh102`
 (`SRFT_SBATCH_FLAGS="--exclude=gh102"` for `submit_eval_sdL2.sh` / `jobs/submit_rlh.sh`); multi-GPU scripts should preflight each GPU
 (`injecAgent-rl-harmmer/rl-injector/jobs/train_attacker.sbatch`). Report to arch@jh.edu if it persists.
+
+## Partition access and QOS — re-checked 2026-09-16 (supersedes the 2026-09-09 QOS note above)
+- **`b200` is NOT usable by us**: `scontrol show partition b200` → `AllowAccounts=schmidt`. Our account is `cxiao13`
+  (org `arch`, parent `pi-cxiao13`), so every b200 submission sits at `Reason=PartitionConfig` forever, no matter how many
+  cards are idle (seen 2026-09-16: ~29 free B200s, estimated start 24 h out). `b300` is presumably the same.
+  This is why `GPU_PARTITIONS` in `env/skipjack.sh` lists only `a100,h100,h200,l40s` — that list is correct, not an oversight.
+  `a100`, `h100`, `h200` are all `AllowAccounts=jhu` and work; `h100`/`h200` additionally have `DenyQos=jsalt_2026`.
+- **Our QOS is now `scavenger`** (`sacctmgr show assoc user=$USER` → QOS=scavenger, DefaultQOS=scavenger). It was `all`
+  before 2026-09-08 and `class` after; `class` is no longer in our association. Nothing to set by hand — jobs pick it up —
+  but it is the lowest-priority QOS, so `squeue --start` estimates run 2-3 days out and **backfill is the only way we run**.
+  Shrinking the request does not move the estimate (measured 2026-09-16 with `sbatch --test-only`: 1×H200 at
+  `-c 16 --mem=96G` and at `-c 4 --mem=40G` gave the same date), so submit small anyway and expect a night-time backfill slot.
+- **`MaxMemPerCPU` is 12000 on `b200`/`h100`/`h200`, 6000 on `a100`/`l40s`** (the 6000 figure in the 2026-09-09 note is the
+  a100/l40s value). `MaxCPUsPerNode=124` on the 128-core partitions, `88` on a100.
+- Only `h200` (141 GB) can hold a 96 GiB bf16 model on ONE card; a100/h100 are 80 GB and need 2 GPUs + DeepSpeed ZeRO-3
+  (`LLaMA-Factory/examples/deepspeed/ds_z3_config.json`).
+
+## `llamafactory-cli` key=value gotcha (2026-09-16)
+Overrides are parsed as YAML, so **`save_strategy=no` becomes the boolean `False`** and the run dies in argument parsing
+with `ValueError: False is not a valid SaveStrategy`. Same for any `no`/`yes`/`on`/`off` string value. Use
+`save_strategy=steps save_steps=<large>` instead. This bites inside `EXTRA_ARGS` of a queued job, i.e. hours or days after
+submission — check overrides before submitting, not after.
