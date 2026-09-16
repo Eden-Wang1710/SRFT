@@ -540,6 +540,6 @@ prompts run correctly through the HF backend without a template and without a do
 Smoke 3064704 (`meta_mmlu_0shot_instruct`, base, LIMIT=5, `LOG_SAMPLES=1`): the logged prompt is the pre-rendered
 Llama-3.1 chat string verbatim (starts `<|start_header_id|>user<|end_header_id|>`, ends with the open assistant
 header, no template applied, no BOS added), gen kwargs `until: []`, 1,024 tokens; all five base responses end with
-"The best answer is X." and `strict-match` extracts the letter (4/5 correct). Full runs submitted: base and
-srllama × `meta_mmlu_0shot_instruct` (14,042 items, 12 h limit, `-p general-gpu`, denylist). The other three Meta
+"The best answer is X." and `strict-match` extracts the letter (4/5 correct). Full runs submitted: base **3064721** and
+srllama **3064722** × `meta_mmlu_0shot_instruct` (14,042 items, 12 h limit, `-p general-gpu`, denylist). The other three Meta
 configs (`meta_mmlu_pro_instruct`, `meta_bbh`, `meta_ifeval`) are ready to submit on the user's decision.
