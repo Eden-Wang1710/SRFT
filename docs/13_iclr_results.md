@@ -29,6 +29,26 @@ Per suite (Benign / UA / ASR): banking 43.75 / 36.11 / 5.56 · slack 33.33 / 28.
 workspace 42.50 / 32.86 / 0.71. Meta-SecAlign for contrast: banking 25.00 / 25.00 / 1.39 · slack 28.57 / 20.00 / 2.86 ·
 travel 30.00 / 17.86 / 0.00 · workspace 17.50 / 17.68 / 0.71.
 
+#### Why these two Llama rows can be trusted (audited 2026-09-15)
+
+The tool-call interface was audited after finding that two papers from the same group report implausibly low Llama
+numbers (`docs/15_agentdyn.md` §5). Our rows survive the audit on three points:
+
+1. **No lenient parsing.** `llama_local_prompt.parse_output` is exactly as strict as the stock
+   `local_llm._parse_model_output`: same `<function\s*=\s*([^>]+)>` regex, same `json.loads` requirement, same dict
+   requirement, and **no** zero-arg tolerance and **no** trailing-`;` stripping in either. The only addition is
+   `<think>`/`<thinking>` handling, which concerns reflection, not tool calls.
+2. **One pipeline for both rows.** The result JSONs of `llama31_base_noappend` and
+   `llama31_v3base_local_3epoch_noappend` both carry `pipeline_name = meta-llama_Llama-3.1-8B-Instruct-safe-agent`;
+   the base row is that same pipeline with a non-existent `LORA_PATH`. Same prompt, same parser, same sampling.
+3. **The strictness cost was measured, and it does not favour us by construction.** On the 97 benign tasks the parser
+   discarded a call-shaped output in **19/97** base trajectories and **6/97** SR-Agent-Llama trajectories (all 25 end
+   at 3 messages). Both rows paid; the untrained base paid more, exactly as Meta-SecAlign-8B does in AgentDyn's own
+   logs. The numbers in the table above are strict-parser numbers, not discounted ones.
+
+This is an audit of *our* harness. It says nothing about whether a lenient parser would raise both rows — it would,
+and by more for the base. What it does establish is that the reported comparison is like-for-like.
+
 ### 1b. RL-Hammer on InjecAgent (adaptive attack, 20 attacker epochs, 100 test cases per checkpoint)
 ASR at the final checkpoint (step 1020); two independent attacker runs per target.
 | target | run 1 | run 2 | mean | max over runs |
