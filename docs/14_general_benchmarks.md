@@ -558,3 +558,10 @@ What remains below the base after the fix: geometric_shapes 38.0 (54.8, −16.8)
 55.6 (70.0, −14.4), disambiguation_qa 54.4 (64.4, −10.0), tracking_shuffled_objects_five 80.0 (89.6, −9.6); seven
 subtasks are above the base (hyperbaton +7.2, logical_deduction_three +6.4, sports_understanding +3.6, …).
 Per-item classification of the residual (extraction vs genuinely wrong) follows from the sample replay.
+
+**Residual after the stop-string fix, per item** (`analyze_samples.py --task bbh_relaxed`, SR-relaxed vs base default,
+samples replayed from cache): of the −2.55, **wrong −1.20, no_phrase −0.78, format_only −0.57**; under the symmetric
+tolerant scorer 71.17 vs 73.17 (−2.00, still outside 2 se = 1.45). The genuine part sits in `geometric_shapes`
+(SVG-path shape recognition: 38.0 vs 54.8, 145 wrong) and `tracking_shuffled_objects_five` (80.0 vs 89.6);
+`reasoning_about_colored_objects` is pure formatting (57 format-only items; 78.4 vs 76.4 under the tolerant scorer).
+**Conclusion for the paper: BBH is the one row with a small real residual (≈2 points), say so; do not claim parity.**
