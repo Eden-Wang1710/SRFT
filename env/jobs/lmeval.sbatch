@@ -46,11 +46,15 @@ case "$TASK" in
   mmlu_pro|mmlu_pro_cot)                   NS=${SHOTS:-5} ;;
   ifeval)                                  NS=${SHOTS:-0} ;;
   bbh_cot_fewshot|bbh_cot_fewshot_relaxed) NS=${SHOTS:-3} ;;
+  meta_*)                                  NS=${SHOTS:-0} ;;
   *)               NS=${SHOTS:-0} ;;
 esac
 case "$TASK" in
-  mmlu) CHAT=${CHAT:-0} ;;
-  *)    CHAT=${CHAT:-1} ;;
+  mmlu)   CHAT=${CHAT:-0} ;;
+  meta_*) CHAT=${CHAT:-0} ;;   # Meta-SecAlign's configs (eval_general/tasks/meta_secalign): prompts come pre-rendered in the
+                               # Llama-3.1 chat format from meta-llama/Llama-3.1-8B-Instruct-evals; their runner uses
+                               # apply_chat_template=False and num_fewshot=0 (shots are inside the prompts). Same here.
+  *)      CHAT=${CHAT:-1} ;;
 esac
 [ "$CHAT" = 1 ] && TEMPLATE_ARGS="--apply_chat_template --fewshot_as_multiturn" || TEMPLATE_ARGS=""
 # the request cache keys on the rendered prompt, so a template flip cannot pick up stale responses;

@@ -507,3 +507,31 @@ with the explanation above. The trigger story (default → prefill) still holds 
 character (it assumes a trailing period). Plan for the BBH row: score the relaxed-stop run with lm-eval's own
 filter first (that is what the published rows use); only if that still trails, show the case-/punctuation-tolerant
 re-score (`analyze_samples.py --task bbh_relaxed`, same rule for the base) as the secondary number.
+
+## Why our base MMLU is 68.0 against the published 72.0 — a different metric, not a weaker model (2026-09-15 20:xx)
+
+User's concern: a 4-point lower base makes SR-Agent look worse next to Meta-SecAlign-8B. Settled by reading
+Meta-SecAlign's released evaluation code (`facebookresearch/Meta_SecAlign`, `lm_eval_config/` + `test_lm_eval.py`,
+now vendored verbatim under `eval_general/tasks/meta_secalign/` with a README):
+
+- Their "MMLU" is **`meta_mmlu_0shot_instruct`: Meta's own Llama-3.1 recipe — 0-shot chain-of-thought, generative,
+  answer extracted with `best answer is ([A-Z])`, 1,024 tokens**, prompts taken pre-rendered (Llama-3.1 chat format
+  baked in) from the gated `meta-llama/Llama-3.1-8B-Instruct-evals` dataset, `apply_chat_template=False`. That is the
+  protocol behind Meta's model-card number **73.0** ("MMLU (CoT), 0-shot"); Meta-SecAlign reproduces it as 72.0.
+- Our "MMLU" is lm-eval's stock `mmlu`: **0-shot loglikelihood over the option letters, no CoT**, the Hendrycks /
+  Open-LLM-Leaderboard convention. Meta's model card gives **69.4** for the closest loglikelihood-style setting
+  (5-shot `macro_avg/acc`); our 68.00 is that kind of number. The two metrics differ by 3–4 points on the *same*
+  weights — the gap is the metric, not the model.
+- The other three rows match because there the protocols coincide: their `meta_mmlu_pro_instruct` is 5-shot CoT
+  generative (ours too), `meta_bbh` is 3-shot CoT generative (ours too), `meta_ifeval` is IFEval with the four-metric
+  mean computed in `test_lm_eval.py` (which also confirms the "mean of 4" reading of 79.1).
+- Two useful side facts from their configs: (i) their BBH uses **`until: "\n\nQ: "`** — exactly the relaxed stop
+  string we chose, not lm-eval's bare `"\n\n"`, so their BBH row never truncated at a blank line; (ii) their
+  MMLU-Pro is the full 12,032-item set with the `best answer is` regex.
+
+**The clean fix is to run Meta-SecAlign's own configs on our base and on SR-Agent-Llama** (`--include_path
+eval_general/tasks/meta_secalign`, `CHAT=0`, `SHOTS=0`, which the runner now sets for any `meta_*` task). Then every
+cell in the table is the same recipe as the published Meta-SecAlign-8B row and no "our harness vs theirs" caveat is
+needed. Cost per model (H100, HF backend): MMLU 14,042 generative CoT items ≈ 4–6 h; MMLU-Pro 12,032 × 5-shot CoT
+≈ 8–12 h; BBH 6,511 ≈ 4 h; IFEval 541 ≈ 1 h. Smoke first (`LIMIT=5`, general-short) to confirm the pre-rendered
+prompts run correctly through the HF backend without a template and without a doubled BOS.
