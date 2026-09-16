@@ -110,3 +110,11 @@ expert reply text (mean reply length 206 words, 0 empty). Nothing else changed (
 Per-step ground truth for every training step: `self_distill/recovery/step_labels.json` (injection_in_context, injections, expert_has_text, n_candidates).
 - The 474 files beyond 22,456 are all `windows_v1/user_task_*/template_1/injection_task_*/…` — an older injection-template variant
   (cf. `agentdojo/scripts/remove_template_1_dirs.py`); not part of the training data, ignore.
+
+## General-benchmark per-item samples (2026-09-16)
+`eval_general/samples/<tag>/` holds lm-eval `--log_samples` dumps (every prompt / response / score) for the
+default and variant runs of MMLU-Pro and BBH. They are what `analyze_samples.py` and `score_mmlu_pro_official.py`
+read. 101 files / 141 MB were committed on 2026-09-15 before this was noticed; from 2026-09-16 the directory is
+git-ignored (also `eval_general/smoke/`). They are regenerated in 2–3 minutes from the request cache
+(`eval_general/.cache/`, git-ignored) with `DEVICE=cpu LOG_SAMPLES=1` — see docs/14 — so the cache dbs are the
+asset to keep; upload them to HF (`srft-data`) if skipjack needs the per-item files.
