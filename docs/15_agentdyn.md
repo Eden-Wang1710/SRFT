@@ -88,3 +88,68 @@ skipped). All the WashU gotchas from `docs/09_cluster_washu.md` apply (node deny
 | date | what |
 |---|---|
 | 2026-09-15 | branch created; upstream cloned and vendored; Llama pipelines ported; launcher + sbatch + stats copied; env `srft_agentdyn` building. **Nothing run yet.** |
+
+## 5. Upstream's Llama numbers are interface artifacts, not capability (measured 2026-09-15)
+
+Re-derived from upstream's own logs in `agentdyn/runs_upstream_paper/` (benign = `*/user_task_*/none/`, our main-table
+convention). Two different Llama rows are low for two different reasons; **neither is a capability or defence
+measurement**, so do not cite them as a baseline.
+
+| model (no extra defence) | Benign | UA | ASR | pipeline in the logs |
+|---|---|---|---|---|
+| Meta-SecAlign-8B | 5.00 (3/60) | 7.32 | 5.54 | `local` |
+| Llama-3.3-70B undefended | 10.00 (6/60) | 6.43 | 12.50 | `meta-llama_llama-3.3-70b-instruct` (OpenRouter) |
+| Meta-SecAlign-70B | 55.00 | 53.93 | 9.11 | `local` |
+| GPT-4o undefended | 53.33 | 55.36 | 38.93 | `gpt-4o-2024-08-06` |
+
+### (a) Meta-SecAlign-8B — killed by the strict tool-call parser
+12 of 60 benign trajectories emitted **no parsed tool call at all**; 11 of those contain call-shaped text the parser
+dropped. Classified:
+
+| dropped output | n |
+|---|---|
+| `<function=get_current_day></function>` — correct format, zero-arg call written without `{}` → `json.loads("")` raises | **6** |
+| `<function=browse_webpage>{"url": "…"};</function>` — correct format, stray `;` breaks the JSON | **2** |
+| `<browse_webpage>{…}</browsable_webpage>` — wrong tag name | 1 |
+| no call-shaped text at all | 3 |
+
+`local_llm._parse_model_output` takes the first `<function=…>` tag and requires `json.loads` to return a dict; on
+failure it returns the text as a **final answer**, so the trajectory ends immediately — all 12 have exactly 3 messages
+(system + user + assistant) against a median of 13. So 8 of 60 benign tasks (13 %) die on punctuation, and the total
+score is only 3/60. Note `<function=name>{json}</function>` **is** Meta's documented Llama 3.1 *custom tool calling*
+format, so this is parser strictness, not a foreign protocol.
+
+### (b) Llama-3.3-70B — killed by the OpenRouter function-calling path
+17 of 60 benign trajectories have an **empty assistant content** or a single "We cannot assist you without more
+information." and stop, with no `tool_calls` returned. GPT-4o and Meta-SecAlign-70B have 0/60 such trajectories.
+
+### (c) The one-line proof
+**Meta-SecAlign-70B's base model *is* Llama-3.3-70B: 55.00 vs 10.00 benign — 45 points apart.** The only difference is
+`local` pipeline vs OpenRouter. That gap measures the interface, not the model and not the defence.
+
+### (d) Related: ReasAlign (arXiv 2601.10173, same author) — NOT an OpenRouter problem
+Checked the local clone `/storage3/fs1/zhang.ning/Active/hao/ReasAlign` (`git@github.com:leolee99/ReasAlign.git`).
+It serves Llama **locally** through `LlamaClient` (transformers + PEFT, fp16) — there is no OpenRouter/API path for the
+Llama rows, so the AgentDyn (b) explanation does not transfer. Three concrete defects in `client.py::employ` that would
+depress a local Llama baseline:
+1. **double BOS** — `apply_chat_template(tokenize=False)` already emits `<|begin_of_text|>`, then `self.tokenizer(prompts, …)` is called with the default `add_special_tokens=True`, prepending a second one. (Our `llama_sr_agent_llm.py` passes `add_special_tokens=False` for exactly this reason.)
+2. **prompt truncated to 512 tokens** — `truncation=True, max_length=max_length` with `max_length=512` cuts the *input*; the same 512 is reused as `max_new_tokens`. Long injected documents / tool outputs are silently chopped.
+3. **batched right padding** — `padding=True` with `pad_token = eos_token` and `padding_side` never set (default right) for a decoder-only model, plus `input_length = input_ids.shape[-1]` used to slice every sequence in the batch, which is only correct for the longest one.
+
+Not verified by re-running ReasAlign; this is a code read. Worth raising with the author before citing its Llama rows.
+
+## 6. Our own AgentDojo Llama rows use the SAME strict parser (verified 2026-09-15)
+
+Checked because the numbers in `docs/13` §1a must not come from a lenient tool-call parser:
+- `llama_local_prompt.parse_output` (ours) and `local_llm._parse_model_output` (the one AgentDyn uses) are **equally
+  strict**: same `<function\s*=\s*([^>]+)>` regex, same `json.loads` requirement, same dict requirement, **no**
+  empty-arg tolerance and **no** `;` stripping in either. Ours only adds `<think>`/`<thinking>` handling, which is
+  reflection, not tool calls.
+- Both Llama rows ran through the **same pipeline**: the result JSONs of `llama31_base_noappend` and
+  `llama31_v3base_local_3epoch_noappend` both carry `pipeline_name = meta-llama_Llama-3.1-8B-Instruct-safe-agent`
+  (base = the same pipeline with a non-existent `LORA_PATH`). Same prompt, same parser, same generation settings.
+- Measured parse loss on the 97 benign tasks: base **19/97** trajectories had a call-shaped output dropped
+  (10 of them the zero-arg `{}` case), SR-Agent-Llama **6/97**. All 25 end with exactly 3 messages.
+
+So neither row was given a discount; both were scored under the same strict rules, and the untrained base was hit
+harder — the same way Meta-SecAlign-8B is hit in upstream's runs.
