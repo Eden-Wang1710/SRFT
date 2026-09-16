@@ -584,3 +584,13 @@ only wall-clock: the Meta-MMLU base run needed >12 h at batch 1. Fix: `env/jobs/
 knob; pass `BATCH=32` for the generative tasks (Meta-SecAlign's own runner used vLLM with batch 512). Greedy outputs
 under left-padded batching can differ from batch-1 outputs by bf16 noise on rare items; that is standard practice
 and is noted here rather than hidden. Validated on a 64-item SR smoke before the Meta-MMLU resubmissions.
+
+## MMLU under Meta's own recipe — base 71.83 vs published 72.0 (2026-09-16 16:04)
+`meta_mmlu_0shot_instruct` (Meta-SecAlign's vendored config: 0-shot CoT, generative, `best answer is ([A-Z])`,
+pre-rendered prompts, no template, 14,042 items), our base Llama-3.1-8B-Instruct: **71.83 ±0.38** — the published
+Meta-SecAlign base row is 72.0 (**−0.17**), Meta's model card 73.0. Jobs: 3064721 (batch 1, timed out at 79 %) +
+continuation 3068361 (BATCH=32, 28 min for the remaining 2,978 items). This closes the question of the 4-point MMLU
+gap: same weights, loglikelihood scoring gives 68.00, Meta's CoT recipe gives 71.83. **The MMLU row in docs/13 is
+now the Meta-recipe number**; the loglikelihood pair (68.00 / 67.63) goes to the appendix as the leaderboard-style
+figure. `report.py` prints the new row as `MMLU-MetaCoT` (check 1 against 72.0) and the old one as `MMLU-loglik`.
+SR-Agent-Llama under the same recipe: job 3068360 (BATCH=32, preempted once at 1,024 items, requeued, cache intact).

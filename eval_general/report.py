@@ -21,10 +21,13 @@ top-level "chat_template_sha" key in the results JSON: null = no template, a sha
 import argparse, glob, json, math, os, sys
 
 # Published base row for Llama-3.1-8B-Instruct (Meta-SecAlign paper's table; see docs/99 2026-09-14).
-REFERENCE = {"mmlu": 72.0, "mmlu_pro": 46.5, "ifeval": 79.1, "bbh_cot_fewshot": 71.9}
+REFERENCE = {"mmlu": 72.0, "mmlu_pro": 46.5, "ifeval": 79.1, "bbh_cot_fewshot": 71.9, "meta_mmlu_0shot_instruct": 72.0}
+# NOTE: the published 72.0 was produced with Meta's 0-shot-CoT recipe (meta_mmlu_0shot_instruct, docs/14); the stock
+# `mmlu` row is loglikelihood-scored and lands ~4 points lower on the same weights — compare it to 69.4 (model card, 5-shot) instead.
 # Protocol: does the canonical run use --apply_chat_template?  (docs/14 "Chat-template decision")
 WANT_TEMPLATE = {"mmlu": False, "mmlu_pro": True, "ifeval": True, "bbh_cot_fewshot": True,
-                 "bbh_cot_fewshot_relaxed": True, "mmlu_pro_cot": True}
+                 "bbh_cot_fewshot_relaxed": True, "mmlu_pro_cot": True,
+                 "meta_mmlu_0shot_instruct": False}   # prompts come pre-rendered from Meta's evals dataset
 # check 3: variant task -> (default task it modifies, what the knob is)
 VARIANTS = {
     "bbh_cot_fewshot_relaxed": ("bbh_cot_fewshot", 'until=["</s>","\\n\\nQ:"] instead of ["</s>","Q","\\n\\n"]'),
@@ -42,9 +45,10 @@ METRICS = {
     "bbh_cot_fewshot": ["exact_match,none"],
     "bbh_cot_fewshot_relaxed": ["exact_match,get-answer", "exact_match,none"],
     "mmlu_pro_cot": ["exact_match,custom-extract"],
+    "meta_mmlu_0shot_instruct": ["exact_match,strict-match"],
 }
-TASKS = ["mmlu", "mmlu_pro", "ifeval", "bbh_cot_fewshot"]
-LABEL = {"mmlu": "MMLU", "mmlu_pro": "MMLU-Pro", "ifeval": "IFEval", "bbh_cot_fewshot": "BBH",
+TASKS = ["meta_mmlu_0shot_instruct", "mmlu", "mmlu_pro", "ifeval", "bbh_cot_fewshot"]
+LABEL = {"mmlu": "MMLU-loglik", "mmlu_pro": "MMLU-Pro", "ifeval": "IFEval", "bbh_cot_fewshot": "BBH", "meta_mmlu_0shot_instruct": "MMLU-MetaCoT",
          "bbh_cot_fewshot_relaxed": "BBH-relaxed", "mmlu_pro_cot": "MMLU-Pro-CoT"}
 
 
@@ -180,28 +184,28 @@ def main():
           "(marked 'tolerant'); lm-eval's own numbers appear in check 3.\n")
     print("Check 1 — does OUR base reproduce the published Llama-3.1-8B-Instruct row?")
     print(f"  (tolerance {args.tol:.1f} points; MMLU 68 vs 72 is the user's stated example of acceptable)\n")
-    print(f"  {'task':<10} {'published':>9} {'our base':>9} {'delta':>7}   verdict   (IFEval = mean of its 4 sub-metrics)")
+    print(f"  {'task':<13} {'published':>9} {'our base':>9} {'delta':>7}   verdict   (IFEval = mean of its 4 sub-metrics; MMLU-MetaCoT = Meta's 0-shot CoT recipe, the published protocol)")
     for task in TASKS:
         r = picks[("base", task)]
         ref = REFERENCE[task]
         if r is None:
-            print(f"  {LABEL[task]:<10} {ref:9.1f} {'pending':>9} {'':>7}   waiting for the run")
+            print(f"  {LABEL[task]:<13} {ref:9.1f} {'pending':>9} {'':>7}   waiting for the run")
             continue
         d = r["score"] - ref
         v = "comparable" if abs(d) <= args.tol else f"OFF by {abs(d):.1f} — do not cite their defended row"
-        print(f"  {LABEL[task]:<10} {ref:9.1f} {r['score']:9.2f} {d:+7.2f}   {v}")
+        print(f"  {LABEL[task]:<13} {ref:9.1f} {r['score']:9.2f} {d:+7.2f}   {v}")
 
     print("\nCheck 2 — does SR-Agent-Llama lose general ability vs OUR base? (same harness config)")
     print("  IFEval is shown per sub-metric; parity must hold on each.\n")
-    print(f"  {'task':<10} {'metric':<22} {'base':>8} {'SR-Agent':>8} {'delta':>7} {'2*se':>6}   verdict")
+    print(f"  {'task':<13} {'metric':<22} {'base':>8} {'SR-Agent':>8} {'delta':>7} {'2*se':>6}   verdict")
     for task in TASKS:
         b, s = picks[("base", task)], picks[("srllama", task)]
         if b is None or s is None:
             have = "base only" if b else ("SR only" if s else "neither")
-            print(f"  {LABEL[task]:<10} {'':<22} {fmt(b['score'] if b else None,8)} {fmt(s['score'] if s else None,8)} {'':>7} {'':>6}   pending ({have})")
+            print(f"  {LABEL[task]:<13} {'':<22} {fmt(b['score'] if b else None,8)} {fmt(s['score'] if s else None,8)} {'':>7} {'':>6}   pending ({have})")
             continue
         if b["items"] != s["items"]:
-            print(f"  {LABEL[task]:<10} !! item counts differ: base {b['items']} vs SR {s['items']} — NOT comparable")
+            print(f"  {LABEL[task]:<13} !! item counts differ: base {b['items']} vs SR {s['items']} — NOT comparable")
             continue
         for k in b["keys"]:
             if k not in s["vals"]:
@@ -214,9 +218,9 @@ def main():
                 v = "PARITY (inside 2 se)"
             else:
                 v = ("DROP" if d < 0 else "gain") + f" of {abs(d):.2f}, outside 2 se"
-            print(f"  {LABEL[task]:<10} {k.split(',')[0]:<22} {b['vals'][k]:8.2f} {s['vals'][k]:8.2f} {d:+7.2f} {fmt(se2,6)}   {v}")
+            print(f"  {LABEL[task]:<13} {k.split(',')[0]:<22} {b['vals'][k]:8.2f} {s['vals'][k]:8.2f} {d:+7.2f} {fmt(se2,6)}   {v}")
         if len(b["keys"]) > 1:
-            print(f"  {'':<10} {'mean of the above':<22} {b['score']:8.2f} {s['score']:8.2f} {s['score']-b['score']:+7.2f}")
+            print(f"  {'':<13} {'mean of the above':<22} {b['score']:8.2f} {s['score']:8.2f} {s['score']-b['score']:+7.2f}")
 
     print("\nCheck 3 — protocol variants for the two check-2 failures (both models re-run under ONE knob)")
     print("  The default row stays the reported number; the variant row tests whether the gap is response style.\n")
@@ -255,7 +259,7 @@ def main():
             r = picks[(tag, task)]
             if r is None:
                 continue
-            print(f"  {tag:<8} {LABEL[task]:<10} {r['date']}  template={'on ' if r['template'] else 'off'}"
+            print(f"  {tag:<8} {LABEL[task]:<13} {r['date']}  template={'on ' if r['template'] else 'off'}"
                   f"  items={r['items']:<6} limit={str(r['limit']):<6} metrics={','.join(k.split(',')[0] for k in r['keys'])}"
                   f"{'  scorer=official three-tier extraction' if r.get('official') else ''}"
                   f"{'  scorer=tolerant extractor (SR = relaxed-stop run)' if r.get('tolerant') else ''}")
@@ -263,7 +267,7 @@ def main():
     if strays:
         print("\nOther results files present but NOT used (wrong template setting for the protocol)")
         for tag, r in strays:
-            print(f"  {tag:<8} {LABEL[r['task']]:<10} {r['date']}  template={'on' if r['template'] else 'off'}"
+            print(f"  {tag:<8} {LABEL[r['task']]:<13} {r['date']}  template={'on' if r['template'] else 'off'}"
                   f"  score={r['score']:.2f}  {r['path']}")
     return 0
 

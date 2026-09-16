@@ -121,7 +121,7 @@ they were produced by that paper's own harness, so they are comparable to our ba
 
 | benchmark (shots) | what it tests | published base (Meta-SecAlign paper) | published **Meta-SecAlign-8B** | **our base** Llama-3.1-8B-Instruct | **SR-Agent-Llama** (no append) |
 |---|---|---|---|---|---|
-| MMLU (0-shot, loglikelihood) | world knowledge | 72.0 | 71.7 | 68.00 ±0.37 | **67.63** ±0.38 (−0.37, parity) |
+| MMLU (Meta's 0-shot CoT recipe, `meta_mmlu_0shot_instruct`) | world knowledge | 72.0 | 71.7 | **71.83** ±0.38 | *running* (3068360) — loglikelihood pair 68.00 / 67.63 (−0.37, parity) in the appendix |
 | MMLU-Pro (5-shot CoT, official extraction) | knowledge + reasoning | 46.5 | 46.7 | 47.50 | **45.79** (CoT prefill; −1.71, 2 se 3.77, parity) — default protocol 43.79 in the appendix |
 | IFEval (0-shot, mean of 4 sub-metrics) | instruction following | 79.1 | **74.5** (−4.6 vs its base) | 79.26 | **79.70** (+0.44; parity on all four sub-metrics) |
 | BBH (3-shot CoT, tolerant answer extraction; SR run with stop `\n\nQ:` as in Meta's recipe) | multi-step reasoning | 71.9 | 70.9 | **73.17** ±0.55 | **71.17** ±0.56 (−2.00, 2 se 1.57 — the one row still outside 2 se; lm-eval-strict 71.23 / 68.68 and the truncated 64.26 go to the appendix) |
