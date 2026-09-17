@@ -299,5 +299,20 @@ Reference rows this is compared against (`docs/13` §1a):
 
 **Reading agreed with the user before the run:** ABL-A is expected to be clearly worse — it is plain action imitation
 on the attacked trajectories, i.e. the arm that isolates "is the reflection doing the work, or is it just the data?".
-A second arm (ABL-B, `<think>` kept but its third paragraph — the action analysis, where the sampled failures enter —
-removed; 42.9 % of think tokens, 99.87 % of think blocks are cleanly 3 paragraphs) is prepared but not yet run.
+### ABL-B — w/o action analysis (`<think>` kept, its LAST paragraph removed) — PREPARED, NOT SUBMITTED
+The third paragraph is where the sampled candidate actions (Stage II) enter the supervision; paragraphs 1-2 (restate the
+goal, identify the injection) need only the expert trajectory and the injection ground truth. Data
+`toucan_32B_v3_base_llama_local_nolast.json`, config `examples/train_lora/llama31_8b_lora_sft_abl_nolast.yaml`
+(again only `dataset` + `output_dir` differ from the main row), ckpt would be
+`saves/llama31-8b/lora/abl_nolast_sft_8k_r64_GA4_qkvo_3epoch_5e-6`.
+
+| check | value |
+|---|---|
+| think blocks that are cleanly 3 paragraphs | 22,309 / 22,339 = **99.87 %** (the 30 outliers also lose only their last paragraph) |
+| think tokens removed | **42.9 %** (median think 295 -> 171 words) |
+| think blocks still mentioning a candidate / sub-optimal action | **83.2 % -> 0.6 %** - the failure-contrast signal really is confined to the last paragraph, not spread through the reflection |
+
+Caveat to state if this arm is reported: dropping the whole paragraph also removes the *positive* rationale for the
+expert action (30.5 % of think tokens), which is not failure-derived. Isolating only the failure contrast (12.4 % of
+tokens, a no-op on 16.4 % of examples) is likely under-powered against the <=3-4 point noise floor in `docs/06`; the
+clean version of that would regenerate paragraph 3 with the candidate actions withheld from the expert LLM.
