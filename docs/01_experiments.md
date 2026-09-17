@@ -295,7 +295,27 @@ Reference rows this is compared against (`docs/13` §1a):
 | Llama-3.1-8B-Instruct (undefended) | 27.84 | 23.08 | 7.59 |
 | Llama-3.1-8B + SR prompt only (no training) | 31.96 | 21.71 | 4.32 |
 | **SR-Agent-Llama (full SRFT)** | **37.11** | **29.08** | **1.26** |
-| **ABL-A (w/o self-reflection)** | — | — | — |
+| **ABL-A (w/o self-reflection)** | **34.02** | **29.29** | **0.84** |
+
+**ABL-A RESULT (FINAL 2026-09-17, job 3079748 train + 3079750-59 eval + 3079760 stats): the reflection adds nothing on
+AgentDojo.** Trade-off 128.45 vs the full model's 127.82. Per suite (Benign / UA / ASR): banking 37.50 / 30.56 / 4.86 ·
+slack 47.62 / 31.43 / 0.95 · travel 10.00 / 17.14 / 0.00 · workspace 37.50 / 31.61 / 0.00.
+
+All three metrics are statistically indistinguishable from full SRFT: benign 33/97 vs 36/97 (3 tasks), UA 29.29 vs
+29.08 (0.2 points), ASR 8/949 vs 12/949 (4 attacks) — every gap is inside the <=3-4 point noise band recorded in
+`docs/06`, and ABL-A is nominally *better* on ASR and trade-off.
+
+Verified before drawing this conclusion: the eval banner in `agentdojo/logs/eval_parallel/abl_nothink/*/proc*.log`
+shows `lora=.../abl_nothink_... exists=True append=False`, and **0 of 1,081 trajectories contain a thinking block**, so
+the model really never reflects. Training: 3 h 04 on one A100 (c2-gpu-023), 696 steps, train_loss 1.086.
+
+**What this does and does not say.** On AgentDojo the defence comes from the *data* — attacked trajectories supervised
+with the correct, non-hijacked action — not from the reflection. It does **not** yet speak to the paper's actual claim,
+which is about generalising to *unseen and adaptive* attacks; AgentDojo is one static attack (`important_instructions`).
+The place that claim lives is RL-Hammer, where full SR-Agent-Llama holds at 17.5 % while Meta-SecAlign-8B degrades to
+69.5 %. **ABL-A has not been run under RL-Hammer.** Until it is, the ablation cannot be reported as support for the
+self-reflection mechanism; if ABL-A collapses under the adaptive attacker while the full model holds, the ablation
+becomes the sharper version of the paper's story (reflection buys adaptive robustness, not static robustness).
 
 **Reading agreed with the user before the run:** ABL-A is expected to be clearly worse — it is plain action imitation
 on the attacked trajectories, i.e. the arm that isolates "is the reflection doing the work, or is it just the data?".
