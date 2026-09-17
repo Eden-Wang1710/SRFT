@@ -271,3 +271,33 @@ the protocol or the code was changed here; this section only records the WashU s
 | | ckpt 51 / 306 / 612 / 1020 — **append**: emits any call 18 / 17 / 86 / 86 %, and *given* a call, it is the injected one 11 / 41 / 49 / 63 %; **no-append**: 29 / 27 / 14 / 14 % and 21 / 11 / 7 / 21 %. The attacker learns both to make the target act and to aim the action |
 | tested and rejected | the hypothesis that the append leaks the attack by asking the model to "briefly think about what function call may follow the injection": the think does name the injected tool often, but **equally in failures and in the no-append run** (e.g. no-append ckpt 51: 19/23 failed cases name it), so naming is not what discriminates success. The append does not corrupt the reasoning — it changes the behavioural default from "answer in text" to "emit a call" |
 | caveat | this is replicate run 2 (SEED 2048) only. The paper curve averages 2 runs; **the claim must be checked against skipjack's run 1 (`iclr_rlh_srllama_append`, seed 1024) before it is used** — if run 1 does not also climb, the divergence itself needs explaining. Nothing here was compared to run 1 yet |
+
+## ABL — SRFT ablations on Llama-3.1-8B (branch `exp/ablation`, started 2026-09-17, WashU)
+
+Purpose: show that SRFT's gain comes from the self-reflection supervision, not from the attacked trajectories alone.
+Everything except the training data is identical to **L-v3base-noappend** (the ICLR main row): same base model, same LoRA
+config (`llama31_8b_lora_sft_abl_nothink.yaml` differs from `llama31_8b_lora_sft_v3base_local.yaml` only in `dataset`
+and `output_dir`), same AgentDojo protocol (`important_instructions`, `SYS_APPEND=0`, T 0.6 / top-p 0.9).
+
+### ABL-A — w/o self-reflection (the whole `<think>` block removed)
+| field | value |
+|---|---|
+| data | `toucan_32B_v3_base_llama_local_nothink.json` — the same 3,698 trajectories with every `<think>…</think>` stripped from all **22,339** assistant messages (**−80.6 %** of assistant tokens; median assistant message 318 → 5 words). Deterministic: every assistant message had exactly one think block, and the remainder is a `<function=…>` call (15,492) or a final answer (6,847) |
+| built by | `LLaMA-Factory/data/` surgery, registered in `dataset_info.json` as `toucan_32B_v3_base_llama_local_nothink`; verified offline with `get_train_args` + `get_dataset` (supervised span starts at `<function=`, no think residue) |
+| config | `examples/train_lora/llama31_8b_lora_sft_abl_nothink.yaml`; 1 GPU, GA 16 (effective batch 16), 3 epochs, lr 5e-6, r64 α96 q/k/v/o |
+| ckpt | `LLaMA-Factory/saves/llama31-8b/lora/abl_nothink_sft_8k_r64_GA4_qkvo_3epoch_5e-6` |
+| job | **3079748** (submitted 2026-09-17 01:2x, `-t 10:00:00`) |
+| eval | AgentDojo, `MODEL=LLAMA_3_1_8B_SAFE_AGENT SYS_APPEND=0` — the same pipeline as the main row, so the only difference is what the model learned |
+
+Reference rows this is compared against (`docs/13` §1a):
+| model | Benign | UA | ASR |
+|---|---|---|---|
+| Llama-3.1-8B-Instruct (undefended) | 27.84 | 23.08 | 7.59 |
+| Llama-3.1-8B + SR prompt only (no training) | 31.96 | 21.71 | 4.32 |
+| **SR-Agent-Llama (full SRFT)** | **37.11** | **29.08** | **1.26** |
+| **ABL-A (w/o self-reflection)** | — | — | — |
+
+**Reading agreed with the user before the run:** ABL-A is expected to be clearly worse — it is plain action imitation
+on the attacked trajectories, i.e. the arm that isolates "is the reflection doing the work, or is it just the data?".
+A second arm (ABL-B, `<think>` kept but its third paragraph — the action analysis, where the sampled failures enter —
+removed; 42.9 % of think tokens, 99.87 % of think blocks are cleanly 3 paragraphs) is prepared but not yet run.
