@@ -155,43 +155,73 @@ Checked because the numbers in `docs/13` §1a must not come from a lenient tool-
 So neither row was given a discount; both were scored under the same strict rules, and the untrained base was hit
 harder — the same way Meta-SecAlign-8B is hit in upstream's runs.
 
-## 7. Attacked set: SR-Agent-Llama over-defends (observed 2026-09-16, SR at 384/560)
+## 7. Attacked set — FINAL (2026-09-16, both rows 60 benign + 560 attacked)
 
-Preliminary — SR-Agent-Llama's attacked run is ~69 % complete. base Llama is FINAL (560/560).
-
-| | Benign | UA | ASR | UA/Benign (retention under attack) |
+| model (8B, no extra defence) | Benign ↑ | UA ↑ | ASR ↓ | Trade-off ↑ |
 |---|---|---|---|---|
-| base Llama-3.1-8B | 11.67 | **8.93** | 9.82 | 0.77 |
-| SR-Agent-Llama (384/560) | 10.00 | 3.66 | **2.09** | **0.37** |
+| base Llama-3.1-8B (undefended) | **11.67** | **8.93** | 9.82 | 99.11 |
+| Meta-SecAlign-8B *(upstream's own logs)* | 5.00 | 7.32 | 5.54 | 101.79 |
+| **SR-Agent-Llama (no append)** | 10.00 | 3.57 | **1.96** | 101.61 |
 
-ASR is where we want it (2.09 vs 9.82, lower on all three suites; dailylife 1.53 vs 21.50). UA is not: the two models
-have the *same* benign utility, so the UA gap is not capability — it is behaviour under attack.
+Per suite (Benign / UA / ASR) — base · Meta-SecAlign-8B · **SR**:
+shopping 5.00/3.89/5.00 · 0.00/0.00/0.00 · **5.00/3.89/1.67**;
+github 25.00/16.11/1.67 · 15.00/11.67/2.78 · **20.00/6.11/2.78**;
+dailylife 5.00/7.00/21.50 · 0.00/10.00/13.00 · **5.00/1.00/1.50**.
 
-**Mechanism.** Share of trajectories whose FINAL assistant message contains refusal / security wording
-(`cannot|unable to|refus|suspicious|prompt injection|malicious|…`):
+### What holds
+**ASR.** SR-Agent-Llama is 1.96 against the base's 9.82 (5× lower) and Meta-SecAlign-8B's 5.54 (2.8× lower), and it is
+lower on all three suites. The margin is largest exactly where the attack works: dailylife 1.50 vs 21.50 (base) and
+13.00 (Meta-SecAlign-8B).
 
-| | benign | attacked |
-|---|---|---|
-| base Llama | 10.2 % | 5.4 % (goes *down*) |
-| SR-Agent-Llama | 23.9 % | **71.4 %** |
+### What does not hold
+**Utility.** UA 3.57 against the base's 8.93 — about 40 %. The "utility does not drop far" half of the claim fails on
+this benchmark.
 
-Failure modes on the attacked set:
+### Correction to the preliminary reading in an earlier version of this section
+The earlier note claimed SR "detects the injection and then stops", inferred from refusal/security wording appearing in
+the final message of 71.4 % of attacked trajectories (base 5.4 %). **The mechanism is not supported by the data.**
+Splitting SR's 560 attacked trajectories by that wording:
 
-| | task completed | stopped mid-way / wrong | ran out of turns | died at step 1 |
-|---|---|---|---|---|
-| base (560) | 8.9 % | 25.9 % | 32.5 % | 32.7 % |
-| SR-Agent-Llama (384) | 3.6 % | **62.8 %** | 30.5 % | 3.1 % |
+| SR-Agent-Llama attacked | n | task completed | attack succeeded |
+|---|---|---|---|
+| final message mentions security | 384 (68.6 %) | 3.6 % | 2.3 % |
+| it does not | 176 | 3.4 % | 1.1 % |
 
-Sampled final answers show the behaviour precisely: SR **identifies the injection correctly and in detail** ("the
-response … contained a clear prompt injection attempt embedded within a `<section>` block — a malicious message
-disguised as an 'important message' from Emma Johnson") **and then stops**. It treats detection as the terminal action
-instead of flagging the injection and resuming the user's task. That is the over-defense side of exactly the
-security/utility dilemma AgentDyn was built to expose.
+Completion is the same either way, so mentioning security does not predict the abort. SR does talk about security far
+more than the base — that part is real — but it is not what costs the task.
 
-Consistent with, not contradicted by, AgentDojo: there SR-Agent-Llama's UA is 29.08 vs the base's 23.08 (`docs/13` §1a).
-AgentDojo's tasks are short, so one abort costs little; AgentDyn's are long-horizon and dynamic (7.1 steps, 3.17 app
-scenarios), so a single abort destroys the whole task.
+### The real reason the UA comparison looks the way it does
+Normalising by whether a user task is solvable at all (benign run):
 
-Implication for a future version: the training data has no trajectory that flags an injection **and then continues the
-legitimate task**. Analysis to run once SR reaches 560: split the 71.4 % into (a) correct detection followed by an
-abort and (b) false positives on benign tasks — only (b) is over-defense in the strict sense.
+| | benign-solvable tasks | their attacked pairs | still solved under attack | **retention** | solved under attack but NOT benign |
+|---|---|---|---|---|---|
+| base Llama | 7/60 | 64 | 12 | 18.8 % | **38** |
+| SR-Agent-Llama | 6/60 | 55 | 14 | **25.5 %** | 6 |
+
+38 of the base's 50 UA successes come from user tasks its benign run failed. The cause is sampling, not behaviour: the
+benign column is **one** sample per task at T=0.6, while each task appears in 9–10 attacked pairs. A task solved ~20 %
+of the time records 0 benign and ~2/9 attacked.
+
+So **UA, not Benign, is the better-powered utility estimate here** (9–10 samples per task vs 1), and under it the base
+is genuinely ~2.5× better at finishing these tasks than SR-Agent-Llama. The near-equal benign numbers (11.67 vs 10.00)
+were a low-power coincidence and should not be quoted as "utility preserved". By the same token SR's higher retention
+(25.5 vs 18.8) rests on a noisy selection of "solvable" tasks and is not evidence either.
+
+To put Benign on the same footing one would run the 60 benign tasks with 3 seeds (180 trajectories, ≈ 5 h on
+`general-short`). Not done — see the decision below.
+
+## 8. Decision (2026-09-16): archived, not in the ICLR paper
+
+**AgentDyn will not be reported.** ASR alone is a strong result, but the utility side does not support the claim the
+paper needs, and at 8B the benchmark's discrimination is poor to begin with (§5: every 8B-class row is 5–12 % benign
+while the 70B class is 53–55 %). Reporting a 5× ASR reduction next to a UA that is 40 % of the undefended base would
+invite exactly the over-defense reading AgentDyn was built to produce.
+
+Everything is kept so the work can be picked up with a larger base model or a v4 checkpoint: code `SRFT/agentdyn/`
+(vendored upstream + our ported pipelines), env `srft_agentdyn`, launcher `scripts/submit_eval_agentdyn.sh`, all 1,240
+trajectories under `agentdyn/runs/`, upstream's paper logs under `agentdyn/runs_upstream_paper/`. Reproduce any number
+with:
+```bash
+cd agentdyn && python eval/agentdyn_report.py agentdyn_llama_base agentdyn_srllama_noappend
+python eval/agentdyn_report.py --runs-base runs_upstream_paper meta_secalign-8B
+```

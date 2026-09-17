@@ -297,10 +297,17 @@ change before spending GPU time on the 560 attacked cases.
 
 | run | Benign ↑ | UA ↑ | ASR ↓ | status |
 |---|---|---|---|---|
-| ADYN-L-base | **11.67** (7/60) | — | — | benign gate FINAL 2026-09-16 (jobs 3064895–97; shopping 5.00 / github 25.00 / dailylife 5.00) |
-| ADYN-L-v3base-noappend | **10.00** (6/60) | — | — | benign gate FINAL 2026-09-16 (jobs 3064892–94 + resume 3064955–57; shopping 5.00 / github 20.00 / dailylife 5.00) |
+| ADYN-L-base | **11.67** (7/60) | **8.93** | **9.82** | FINAL 2026-09-16, 60 benign + 560 attacked (shopping 5.00/3.89/5.00 · github 25.00/16.11/1.67 · dailylife 5.00/7.00/21.50) |
+| ADYN-L-v3base-noappend | **10.00** (6/60) | **3.57** | **1.96** | FINAL 2026-09-16, 60 benign + 560 attacked (shopping 5.00/3.89/1.67 · github 20.00/6.11/2.78 · dailylife 5.00/1.00/1.50) |
+| *Meta-SecAlign-8B (upstream's own logs, for reference)* | 5.00 | 7.32 | 5.54 | not re-run by us; different pipeline (vLLM greedy) and 11/60 benign trajectories lost to the parser — see `docs/15` §5 |
 
-**Gate verdict: FAILED — the benchmark does not discriminate at 8B.** The two rows differ by one task (7/60 vs 6/60),
+**ARCHIVED 2026-09-16 — not reported in the ICLR paper (`docs/15` §8).** ASR holds (1.96 vs base 9.82, 5× lower, and
+lower on all three suites) but utility does not: UA 3.57 vs 8.93. The benign column is one sample per task at T=0.6 and
+is too noisy to read as parity — 38 of the base's 50 UA successes are on tasks its benign run failed — so UA is the
+better-powered utility estimate here, and under it the base finishes ~2.5× more tasks. Full analysis and the retracted
+"detect-then-abort" reading in `docs/15` §7.
+
+**Benign gate (2026-09-15, kept for the record): the benchmark does not discriminate at 8B.** The two rows differ by one task (7/60 vs 6/60),
 well inside the ≤3–4 point noise band recorded in `docs/06`. Failure modes (benign):
 
 | | success | wrong answer / early stop | ran out of turns | died at step 1 (parser / no call) |
