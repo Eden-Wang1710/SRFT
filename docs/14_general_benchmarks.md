@@ -594,3 +594,10 @@ gap: same weights, loglikelihood scoring gives 68.00, Meta's CoT recipe gives 71
 now the Meta-recipe number**; the loglikelihood pair (68.00 / 67.63) goes to the appendix as the leaderboard-style
 figure. `report.py` prints the new row as `MMLU-MetaCoT` (check 1 against 72.0) and the old one as `MMLU-loglik`.
 SR-Agent-Llama under the same recipe: job 3068360 (BATCH=32, preempted once at 1,024 items, requeued, cache intact).
+
+## MMLU FINAL under Meta's recipe: base 71.83 vs SR-Agent-Llama 71.91 (2026-09-16 21:30)
+SR-Agent-Llama, `meta_mmlu_0shot_instruct`, 14,042 items, BATCH=32 (job 3068360: preempted once on the A100 partition
+at 1,024 items, requeued, 4 h 45 of generation in total): **71.91 ±0.38 vs base 71.83 ±0.38, +0.08, 2 se 1.07 —
+PARITY**, and both sit on the published 72.0 (base) / 71.7 (Meta-SecAlign-8B). Under Meta's own recipe the SR model
+reasons and answers in the required "The best answer is X." form without any prompt help, so no variant is needed
+for this row. Final general-capability table is in docs/13 §5; `report.py` reproduces every cell.
