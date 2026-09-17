@@ -136,6 +136,43 @@ def draw(curves, path, ymax=None, legend=None):
     print(f"  -> {path}")
 
 
+def draw_panels(panels, path):
+    """One wide figure, one axes per family, with a single shared legend underneath.
+
+    Both panels use the same colour semantics (undefended base / Meta-SecAlign / ours), so the legend is generic and
+    the panel title says which base model it refers to."""
+    fig, axes = plt.subplots(1, len(panels), figsize=(7.2, 3.2), sharey=True)
+    handles = {}
+    for ax, (title, curves) in zip(axes, panels):
+        for label, key, (a, b) in curves:
+            ra, rb = series(a), series(b)
+            if not ra or not rb:
+                raise SystemExit(f"missing data for {label}: {a} / {b}")
+            ep, mean, lo, hi = mean_band(ra, rb)
+            ax.fill_between(ep, lo, hi, color=COLORS[key], alpha=0.13, linewidth=0)
+            line, = ax.plot(ep, mean, color=COLORS[key], marker=MARKERS[key], label=label,
+                            markerfacecolor="white", markeredgewidth=1.2, clip_on=False, zorder=3)
+            handles.setdefault(label, line)
+            print(f"  {title:<24} {label:<22} final {mean[-1]:.1f}%  peak {max(mean):.1f}%")
+        ax.set_xlabel("Attacker training epoch")
+        ax.set_title(title, pad=7)
+        ax.set_xlim(0, 20.5)
+        ax.set_ylim(0, 100)
+        ax.set_xticks(range(0, 21, 4))
+        ax.grid(axis="y", color="0.88", linewidth=0.7)
+        ax.set_axisbelow(True)
+    axes[0].set_ylabel("Attack success rate (%)")
+    order = ["Undefended base", "Meta-SecAlign-8B", "SR-Agent (ours)"]
+    fig.legend([handles[k] for k in order if k in handles],
+               [k for k in order if k in handles],
+               loc="lower center", bbox_to_anchor=(0.5, -0.04), ncol=3,
+               frameon=False, handlelength=1.8, columnspacing=2.2, handletextpad=0.5)
+    fig.subplots_adjust(wspace=0.08, bottom=0.26)
+    fig.savefig(path)
+    plt.close(fig)
+    print(f"  -> {path}")
+
+
 def main():
     style()
     print("Llama family:")
@@ -150,6 +187,20 @@ def main():
                                 "eval_rl_hammer_target_llama_qwen_20epoch_YYN_rrreun_allckpts_")),
           ("SR-Agent-Qwen3-8B (ours)", "sr", ("YYY1", "YYY2"))],
          ROOT / "paper" / "fig_rlhammer_qwen.pdf")
+
+
+    print("Combined figure:")
+    draw_panels([("(a) Llama-3.1-8B family",
+                  [("Undefended base", "base", ("iclr_rlh_llama_base_", "iclr_rlh_llama_base_r3_")),
+                   ("Meta-SecAlign-8B", "secalign", ("eval_rl_hammer_target_meta_secalign_8b_allckpts_",
+                                                     "eval_rl_hammer_target_meta_secalign_8b_allckpts_rerun2_")),
+                   ("SR-Agent (ours)", "sr", (("iclr_rlh_srllama_noappend_", "origin/exp/rlh-sr-llama"),
+                                              "iclr_rlh_srllama_noappend_r2_"))]),
+                 ("(b) Qwen3-8B family",
+                  [("Undefended base", "base", ("eval_rl_hammer_target_llama_qwen_20epoch_YYN_allckpts_",
+                                                "eval_rl_hammer_target_llama_qwen_20epoch_YYN_rrreun_allckpts_")),
+                   ("SR-Agent (ours)", "sr", ("YYY1", "YYY2"))])],
+                ROOT / "paper" / "fig_rlhammer.pdf")
 
 
 if __name__ == "__main__":
