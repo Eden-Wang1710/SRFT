@@ -336,3 +336,31 @@ Caveat to state if this arm is reported: dropping the whole paragraph also remov
 expert action (30.5 % of think tokens), which is not failure-derived. Isolating only the failure contrast (12.4 % of
 tokens, a no-op on 16.4 % of examples) is likely under-powered against the <=3-4 point noise floor in `docs/06`; the
 clean version of that would regenerate paragraph 3 with the candidate actions withheld from the expert LLM.
+
+### ABL-A under RL-Hammer (FINAL 2026-09-18) — and why it does not yet settle anything
+Jobs 3081813/3081815 (training, 4×H100, 7 h 40 and 10 h 50) + 3081814/3081816 (per-checkpoint eval). Same protocol as the
+SR-Llama curves (`sr_llama` target path, `SYS_APPEND=0`, GRPO 1020 steps = 20 epochs, NPROC 3, GA 8, seeds 1024 / 2048);
+the only change is `SR_LORA` pointing at the ABL-A adapter. Both job banners were checked to confirm this.
+
+| target | run 1 final | run 2 final | mean | peak |
+|---|---|---|---|---|
+| Llama-3.1-8B undefended | 98 | 99 | **98.5** | 100 |
+| Meta-SecAlign-8B | 80 | 59 | **69.5** | 80 |
+| SR-Agent-Llama (full SRFT) | 32 | 3 | **17.5** | 48 |
+| **ABL-A (w/o self-reflection)** | **4** | **8** | **6.0** | 14 |
+
+ABL-A run 2 curve: 2 3 2 7 9 7 10 9 8 7 4 3 5 5 7 10 5 6 9 8.
+
+**Taken at face value this says removing the reflection makes the model MORE robust, which is not credible.** Both
+ABL-A attackers produced flat curves, and `docs/12`'s variance caveat is explicit that a flat curve measures the
+attacker's search, not the target: SR-Agent-Llama's own two runs against an identical target were 32 and 3. So what we
+have is "0 of 2 attackers found an attack on ABL-A" vs "1 of 2 found one on SR-Agent-Llama" — far too weak to compare.
+
+**The transfer matrix is the test that settles it** (job 3087036, `jobs/transfer_matrix.sbatch`): replay the best
+attacker checkpoint of each run against every target and take the max per target. The adversarial prompts are already
+saved per checkpoint and `injecagent_eval.py` skips loading the attacker model when they exist, so only the target runs
+— 100 cases per cell. Attackers: srllama_r1 ckpt-816 (self-ASR 48, the strongest in the set), srllama_r2 ckpt-714 (7),
+ablnothink_r1 ckpt-867 (14), ablnothink_r2 ckpt-357 (10); targets: SR-Agent-Llama and ABL-A.
+If srllama_r1's attacker breaks ABL-A, ABL-A's flat curves were failed searches and the ablation says nothing about
+robustness; if it does not, ABL-A really is at least as hard to attack and the reflection's contribution is not
+demonstrable in this measurement.
