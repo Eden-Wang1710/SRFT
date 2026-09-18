@@ -18,16 +18,20 @@ export PYTHONUNBUFFERED=1 TOKENIZERS_PARALLELISM=false VLLM_WORKER_MULTIPROC_MET
 export PRINT_TARGET_INPUTS=1 PRINT_TARGET_INPUTS_MAX_N=2
 
 TARGET=${TARGET:?}; SYS_APPEND=${SYS_APPEND:?}; RUN_NAME=${RUN_NAME:?}
+# TARGET_THINK=0|1 (default 1) must match the value used for the attacker training of this run.
 CKPT_DIR=${CKPT_DIR:-checkpoints/$RUN_NAME}
 BASE=meta-llama/Llama-3.1-8B-Instruct
 APPEND=False; [ "$SYS_APPEND" = 1 ] && APPEND=True
+TTHINK=True; [ "${TARGET_THINK:-1}" = 0 ] && TTHINK=False
+TBASE=$BASE; FMT=llama_local
 case "$TARGET" in
   sr_llama)   TGT=${SR_LORA:?}; test -f "$TGT/adapter_model.safetensors" ;;
   llama_base) TGT=$BASE ;;
+  sr_qwen)    TGT=${SR_LORA:?}; test -f "$TGT/adapter_model.safetensors"; TBASE=Qwen/Qwen3-8B; FMT=qwen ;;
   *) echo "unknown TARGET=$TARGET" >&2; exit 2 ;;
 esac
 echo "cluster=$SRFT_CLUSTER node=$(hostname) job=${SLURM_JOB_ID:-} start=$(date) gpu=$(nvidia-smi --query-gpu=name --format=csv,noheader)"
-echo "TARGET=$TARGET TGT=$TGT SYS_APPEND=$APPEND RUN_NAME=$RUN_NAME CKPT_DIR=$CKPT_DIR"
+echo "TARGET=$TARGET TGT=$TGT TBASE=$TBASE FMT=$FMT THINK=$TTHINK SYS_APPEND=$APPEND RUN_NAME=$RUN_NAME CKPT_DIR=$CKPT_DIR"
 
 mapfile -t CKPTS < <(find "$CKPT_DIR" -maxdepth 1 -mindepth 1 -type d -name 'checkpoint-*' | sort -V)
 [ "${#CKPTS[@]}" -gt 0 ] || { echo "no checkpoint-* in $CKPT_DIR" >&2; exit 1; }
@@ -48,10 +52,10 @@ for c in "${CKPTS[@]}"; do
     --attacker_model_name_or_path "$LINKDIR/${name}-lora" \
     --attacker_base_model_name_or_path "$BASE" \
     --target_model_name_or_path "$TGT" \
-    --target_base_model_name_or_path "$BASE" \
+    --target_base_model_name_or_path "$TBASE" \
     --safe_agent_mode True \
-    --safe_agent_prompt_format llama_local \
-    --target_enable_thinking True \
+    --safe_agent_prompt_format "$FMT" \
+    --target_enable_thinking "$TTHINK" \
     --use_safe_agent_system_append "$APPEND" \
     --validation_data_path data/InjecAgent/dataset/test.json \
     --val_batch_size "${VAL_BATCH_SIZE:-16}" \

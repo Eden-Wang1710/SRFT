@@ -399,3 +399,58 @@ adversarial prompts in `outputs/transfer_srllama_r1_816_to_srllama/` — minutes
 **This does not touch the comparison the paper makes against prior work** (SR-Agent-Llama still beats Meta-SecAlign-8B:
 48 vs 69.5 max, 17.5 vs 69.5 mean). What it undermines is the *mechanism* attribution — "learning from failure via
 self-reflection" — since a strictly simpler variant of the same pipeline does better on both benchmarks.
+
+## ABL-Q8 — SRFT ablation on Qwen3-8B (branch `exp/ablation`, started 2026-09-18, WashU)
+
+Purpose: repeat the Llama ablation on the reasoning base, where the no-reflection arm still reasons natively. Compared
+against the **v0 / NeurIPS row the paper reports** (`docs/13` §2a: 51.55 / 46.68 / **1.05**; RL-Hammer Qwen curves in
+Fig. 3b).
+
+### Data — `toucan_32B_v2_nothink.json`
+Built from `toucan_32B_v2.json` (the data v0 was trained on). Steps:
+1. 3,707 trajectories, 22,456 assistant-side turns (`function_call` 15,564 + `gpt` 6,892), each with exactly one `<think>`.
+2. **3,185 of the 6,892 `gpt` turns are think-only with an empty answer** (`data_recovery/README.md`), so for them the
+   think *is* the whole message and stripping it leaves nothing to train on.
+3. Those turns always precede a new `human` turn, so deleting them in place would produce `human → human`. Instead each
+   trajectory is **split** there; the remainder starts a new segment with the same system prompt.
+4. Each segment is trimmed to start at `human` and end on an assistant-side turn (2,349 segments had a dangling trailing
+   `observation`, dropped — not a training target, so no signal lost).
+5. `<think>…</think>` stripped from every remaining assistant-side message.
+
+Result: 3,707 → **6,056** trajectories, **19,271** assistant turns = the theoretical maximum (22,456 − 3,185), −84.5 % of
+assistant tokens. Verified: no think residue, no role-sequence violations, all 15,564 `function_call` values still valid
+JSON, and LLaMA-Factory encodes it with the supervised span starting at `<tool_call>`.
+
+**Caveat, recorded because the user chose to proceed anyway:** this is NOT a matched ablation of v0. v0 trained on the
+full multi-user-turn trajectories *including* the 3,185 think-only turns; this arm is segmented and lacks them. The gap
+to 51.55 / 46.68 / 1.05 therefore mixes "no reflection" with a training-distribution change.
+
+### Training — job 3089151
+`examples/train_lora/qwen3_8b_lora_sft_abl_nothink_v2.yaml` = the v0 recipe (`qwen3_8b_lora_sft_think.yaml`) with only
+`dataset`, `output_dir` and **`enable_thinking: false`** changed. The last one is required: with `true` the qwen3 template
+injects an empty `<think>\n\n</think>` into the supervised target (verified offline), which would train the model to emit
+an empty think rather than none. 1 GPU, GA 16, 3 epochs, 1,137 steps.
+Ckpt `saves/qwen3-8b/lora/abl_q8_nothink_v2_sft_8k_r64_GA4_qkvo_3epoch_5e-6`.
+
+### Evaluation — RL-Hammer, two settings (user decision 2026-09-18)
+Both apply the Qwen template and use **no** system append; they differ only in the target's think mode, which is held
+consistent across attacker training and target evaluation:
+
+| run | flags | target think | append | jobs |
+|---|---|---|---|---|
+| `iclr_rlh_ablq8_yyn` | **YYN** | on | off | train 3090924 → eval 3090925 |
+| `iclr_rlh_ablq8_ynn` | **YNN** | off | off | train 3090926 → eval 3090927 |
+
+Reference curves (`docs/12`, verified from the NeurIPS scripts): SR-Agent = YYY (think on, append **on**), base Qwen3-8B
+= YYN (think on, append off); max-over-runs ASR 42 and 73.
+
+RL-Hammer gained a `sr_qwen` target for this: `train_attacker.sbatch` / `eval_attacker_ckpts.sbatch` now separate the
+attacker base (always LLaMA, paper A.5) from the target base (`TBASE`, Qwen3-8B here), select the prompt format per
+target (`FMT` = `qwen` vs `llama_local`), and expose `TARGET_THINK=0|1`; `submit_rlh.sh` accepts `sr_qwen` and
+`SKIP_LORA_CHECK=1` (the adapter does not exist yet when the run is chained onto its own training job — both sbatch
+scripts re-check it at runtime). Behaviour of the existing `sr_llama` / `llama_base` targets is byte-identical.
+
+**One run per setting.** After the Llama experience (`docs/12` variance caveat; SR-Llama's two runs against one target
+were 32 and 3), a single curve cannot be read as robustness. Whatever these two produce, the **transfer matrix** is
+required before any conclusion: replay the best attacker of each run — including the existing base-Qwen (YYN) and
+SR-Agent-Qwen (YYY) attackers — against every Qwen target and take the max per target.

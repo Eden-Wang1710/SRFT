@@ -1,0 +1,51 @@
+### ABLATION (Qwen3-8B, w/o self-reflection), 2026-09-18: the v0 / NeurIPS recipe (qwen3_8b_lora_sft_think.yaml) with the dataset,
+### output_dir and enable_thinking changed. Data = toucan_32B_v2 with every <think> block stripped; because 3,185 of its 6,892 gpt
+### turns are think-only with an empty answer (data_recovery/README.md), trajectories are SPLIT at those turns instead of losing
+### them, keeping all 19,271 trainable assistant turns. enable_thinking must be false: with true the qwen3 template injects an
+### empty <think>\n\n</think> into the supervised target (verified offline).
+### model
+model_name_or_path: Qwen/Qwen3-8B
+trust_remote_code: true
+
+### method
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_target: q_proj,k_proj,v_proj,o_proj  # change here
+lora_rank: 64
+lora_alpha: 96
+lora_dropout: 0.05
+
+### Qwen3 thinking
+template: qwen3
+enable_thinking: false
+
+### dataset
+dataset: toucan_32B_v2_nothink
+cutoff_len: 8192                                             # original 2048
+overwrite_cache: true
+preprocessing_num_workers: 8
+
+# loss masking
+train_on_prompt: false
+mask_history: false # do not mask the history for SFT
+
+### output
+# output_dir: saves/qwen3-8b/lora/toucan_email_v1_sft_8k_3epoch_1e-5                # change here
+output_dir: saves/qwen3-8b/lora/abl_q8_nothink_v2_sft_8k_r64_GA4_qkvo_3epoch_5e-6
+logging_steps: 3
+save_strategy: epoch
+plot_loss: true
+save_total_limit: 10
+overwrite_output_dir: true
+report_to: none
+
+### train
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 4    # change here
+learning_rate: 5e-6            # change here
+num_train_epochs: 3.0             # change here
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+bf16: true
+flash_attn: auto
