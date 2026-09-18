@@ -364,3 +364,38 @@ ablnothink_r1 ckpt-867 (14), ablnothink_r2 ckpt-357 (10); targets: SR-Agent-Llam
 If srllama_r1's attacker breaks ABL-A, ABL-A's flat curves were failed searches and the ablation says nothing about
 robustness; if it does not, ABL-A really is at least as hard to attack and the reflection's contribution is not
 demonstrable in this measurement.
+
+### Transfer matrix (job 3087036, 2026-09-18) — the ablation is decisive, and it goes against the mechanism claim
+Every run's best attacker checkpoint replayed against both targets (100 InjecAgent cases per cell, prompts read from
+`saved_adv_prompts/`, so the attacker model is never loaded). ASR %:
+
+| attacker \ target | SR-Agent-Llama | ABL-A |
+|---|---|---|
+| SR-Llama r1 ckpt-816 (self 48) | **48** | 8 |
+| SR-Llama r2 ckpt-714 (self 7) | 6 | 9 |
+| ABL-A r1 ckpt-867 (self 14) | 6 | 9 |
+| ABL-A r2 ckpt-357 (self 10) | 10 | 8 |
+| **max per target** | **48** | **9** |
+
+**Validity check:** the four diagonal cells reproduce the curve values (48 / 6 / 9 / 8 against 48 / 7 / 14 / 10) within
+T=0.6 sampling noise, so the matrix is internally consistent.
+
+**The decisive cell:** the strongest attacker in the whole set — the one that reaches 48 % against the full model —
+reaches only 8 % against ABL-A. It does not transfer. So ABL-A's flat curves were **not** failed searches; under the
+max-per-target criterion `docs/12` prescribes, ABL-A (9) is far more robust than full SRFT (48).
+
+### What the two benchmarks say together about ABL-A
+| | AgentDojo (static) Benign / UA / ASR | RL-Hammer (adaptive, max per target) |
+|---|---|---|
+| SR-Agent-Llama (full SRFT) | 37.11 / 29.08 / 1.26 | **48** |
+| ABL-A (w/o self-reflection) | 34.02 / 29.29 / 0.84 | **9** |
+
+**In these measurements the self-reflection supervision contributes nothing to robustness and appears to cost it.** The
+defence comes from the data construction — injections placed in expert trajectories, supervised with the correct,
+non-hijacked action. A plausible mechanism for the gap, not yet checked: the 48 % attacker may have learned to
+manipulate the reflection channel itself, which only exists in the full model. Testing it means reading the successful
+adversarial prompts in `outputs/transfer_srllama_r1_816_to_srllama/` — minutes of work, no GPU.
+
+**This does not touch the comparison the paper makes against prior work** (SR-Agent-Llama still beats Meta-SecAlign-8B:
+48 vs 69.5 max, 17.5 vs 69.5 mean). What it undermines is the *mechanism* attribution — "learning from failure via
+self-reflection" — since a strictly simpler variant of the same pipeline does better on both benchmarks.
