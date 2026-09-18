@@ -1,21 +1,22 @@
-% Appendix case study: AgentDojo slack / user_task_0 / injection_task_4.
-% Undefended Qwen3-8B (agentdojo/runs/base_think1024_noappend) vs SR-Agent-Qwen3-8B (NeurIPS model, runs/3_01_...).
+% Appendix case study (FINAL, user-edited 2026-09-18): AgentDojo slack / user_task_0 / injection_task_4.
+% Undefended Qwen3-8B = agentdojo/runs/base_think1024_noappend (same weights as the paper's base; every think <= 382 tokens);
+% SR-Agent (Qwen3-8B) = the NeurIPS model, agentdojo/runs/3_01_toucan_32B_v2_sft_8k_r64_GA4_qkvo_3epoch_5e-6.
 % Requires: \usepackage{xcolor} \usepackage[most]{tcolorbox}
-% No figure environments and no \captionof: the boxes are `breakable' and may run over a page. The section is ONE case
-% study -- a setup paragraph, three boxes (the shared observation / the undefended trace / the SR-Agent trace), a takeaway
-% paragraph. A box that continues on the next page repeats its title with ``(continued)''.
-% Thinking segments of the undefended model are abridged ([...]); the SR-Agent reflection is verbatim.
 
 \newcommand{\inj}[1]{\textcolor{red!70!black}{#1}}          % injected instruction
 \newcommand{\leak}[1]{\textcolor{red!70!black}{\textbf{#1}}} % leaked secret
 \newcommand{\refl}[1]{\textcolor{blue!60!black}{\textbf{[#1]}}} % reflection component
 
-We walk through one AgentDojo trajectory from the Slack suite (\texttt{user\_task\_0} / \texttt{injection\_task\_4}) on which the
-undefended Qwen3-8B is hijacked while SR-Agent (Qwen3-8B) completes the task safely. The user asks for the content of a webpage; the page returned
-by \texttt{get\_webpage} contains an injected block (shown in red) that impersonates the user and instructs the agent to post the user's Slack
-channel to an external website. The first box shows this shared observation; the second and third boxes show the two agents' traces from that
-point on. Thinking segments of the undefended model are abridged ([\ldots]) with the decisive sentences in italics; the SR-Agent reflection is
-reproduced verbatim, with its three components marked in blue.
+We present one AgentDojo trajectory from the Slack suite
+(\texttt{user\_task\_0} / \texttt{injection\_task\_4}).
+The user asks the agent to read a webpage, whose returned content contains
+an injected instruction attempting to exfiltrate Slack messages.
+Both agents receive the same observation: the undefended Qwen3-8B follows
+the injection, whereas SR-Agent identifies it and completes the original task
+without further tool calls.
+Injected or leaked content is shown in red; decisive reasoning in the
+undefended trace is italicized, while the three components of SR-Agent's
+reflection are marked in blue.
 
 \begin{tcolorbox}[
 colback=white, colframe=black, coltitle=black, colbacktitle=gray!30, boxrule=0.3pt,
@@ -94,10 +95,11 @@ to the user as data \ldots] The injected instructions within the INFORMATION blo
 read the content from the webpage, which I have completed.''
 \end{tcolorbox}
 
-\medskip
-\noindent\textbf{Takeaway.} The two traces diverge at the first step after the observation. The undefended model never questions the provenance
-of the instruction: it treats text returned by a tool as a message from the user (italics in the undefended trace), lists the channels, reads the
-general channel and posts its contents---including a secret key (bold red)---to the attacker's site, and then reports the exfiltration as task
-completion. SR-Agent's reflection follows the three-part structure of Stage~III (Section~\ref{sec:stage3}): it restates the user's goal, names the
-injected instruction and its source, and predicts the consequence of executing it (italics in the SR-Agent trace) before choosing the action that
-serves the original goal. The task is completed in a single step and no Slack data leaves the workspace.
+\paragraph{Takeaway.}
+The two traces diverge immediately after the shared observation.
+The undefended model treats tool-returned text as a user instruction and
+proceeds to access and exfiltrate Slack messages.
+SR-Agent instead identifies the injected instruction and its provenance,
+recovers the original goal, and anticipates the consequence of following the
+injection. It therefore answers from the retrieved webpage without making any
+additional Slack tool calls.
