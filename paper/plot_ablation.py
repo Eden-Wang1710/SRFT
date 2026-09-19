@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Train-time ablation figure: RL-Hammer ASR vs attacker epoch on the Qwen3-8B family.
 
-Four curves: the undefended base and full SRFT are the mean of two independent attacker runs (band = the two runs);
-the two ablation arms are single runs of the SAME checkpoint, differing only in the target's think mode, which is held
-consistent between attacker training and evaluation.
+Four curves: the undefended base and full SRFT are the mean of two independent attacker runs; the two ablation arms are
+single runs of the SAME checkpoint, differing only in the target's think mode, which is held consistent between attacker
+training and evaluation. No run-to-run band is drawn (user preference, 2026-09-18).
 
     conda activate agentdojo && python paper/plot_ablation.py
 """
@@ -71,8 +71,6 @@ def main():
     fig, ax = plt.subplots(figsize=(6.0, 3.4))
     for label, color, marker, ls, names in CURVES:
         ep, mean, lo, hi = mean_band(names)
-        if len(names) > 1:
-            ax.fill_between(ep, lo, hi, color=color, alpha=0.13, linewidth=0)
         ax.plot(ep, mean, color=color, marker=marker, linestyle=ls, label=label,
                 markerfacecolor="white", markeredgewidth=1.2, clip_on=False, zorder=3)
         print(f"  {label:<26} epochs {ep[0]:.0f}-{ep[-1]:.0f}  final {mean[-1]:.1f}  peak {max(mean):.1f}")
