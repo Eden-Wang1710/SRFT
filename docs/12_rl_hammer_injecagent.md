@@ -199,3 +199,13 @@ Reading the reward curve is a 10-second way to tell a stuck run from a real one,
 robust". Before a Fig. 2 claim of the form "SR-Agent resists adaptive attacks", run the **transfer matrix**: every run's best attacker checkpoint
 replayed against every target, report the max per target. The prompts are already saved per checkpoint, so the whole matrix costs minutes.
 This applies to the published Qwen curves as well, which were never transfer-tested.
+
+## Static (benchmark-injection) ASR of the two Qwen targets + recovered NeurIPS per-case files (2026-09-18, WashU)
+`jobs/static_eval_qwen.sbatch` (job 3106271, general-short, 5 min): InjecAgent's own injection, no attacker, eval format `qwen`,
+1024 tokens — **base Qwen3-8B (no append) 1 %, SR-Agent-Qwen3-8B (v0 LoRA, append) 3 %** → `outputs/iclr_static_qwen_*_`.
+The DSAI per-case files for the NeurIPS attackers were recovered by the user and placed at their canonical paths:
+`outputs/YYY1/YYY1_all_checkpoint-1020/YYY1_all_checkpoint-1020/checkpoint-1020-lora.json` (SR target; 32 succ / 56 unsucc / 12 invalid)
+and `outputs/eval_rl_hammer_target_llama_qwen_20epoch_YYN_allckpts_/…checkpoint-969/checkpoint-969-lora.json` (base target; 63 / 32 / 5).
+32 of 100 cases have "base hijacked, SR resists with a valid answer"; case 98 (sell 50 BTC) is the appendix case study
+(`paper/case_study_rlhammer_qwen.tex`). Note for the write-up: SR-Agent-Qwen sometimes echoes the reflection-instruction append
+("For your thinking process, please: 1. …") after its `</think>`, e.g. on cases 22 and 98 — abridge those outputs with [...].
