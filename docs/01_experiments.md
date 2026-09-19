@@ -508,3 +508,39 @@ at inference, so it cannot be explained by ABL-Q8 being off-distribution in the 
 
 **Also unresolved: this contradicts ABL-A on Llama**, where the no-reflection arm was *more* robust (transfer-matrix max
 9 vs 48). Two bases, opposite answers; that needs an explanation before either is used in the paper.
+
+## ABL-APPEND — the v0 append / think ablation, disentangled (2026-09-19)
+
+Run `agentdojo/runs/v0_noappend_think512` (jobs 3106749–58, stats 3106759) fills the cell that was missing: the **v0
+checkpoint, append OFF, think ON**. Checkpoint identity verified before the run — `adapter_config` is Qwen3-8B r64/α96
+q,k,v,o and `train_results.json` reports train_loss **0.9778870977889532**, matching the 0.978 recorded for v0;
+sha256 of `adapter_model.safetensors` = `8769d466afbee4337f1a5490ed2ad411f6922af13311d315fd0c1f8b90edbbf1`. Every
+shard's banner was checked for `LORA=…toucan_32B_v2_sft_8k_r64_GA4_qkvo_3epoch_5e-6 SYS_APPEND=0 THINK=1
+THINK_BUDGET=512`.
+
+Cross-check: its Benign is **55.67** (banking 56.25 · slack 71.43 · travel 45.00 · workspace 52.50), and the old
+DSAI-era benign-only CSV `eval/attack_stats_qwen3_8b_toucan_lora_think_no_sys_append_no_attack_*.csv` also reports
+55.67 — an independent reproduction of that cell.
+
+| # | v0, think budget 512 | Benign | UA | ASR | source |
+|---|---|---|---|---|---|
+| ① | append ON, think ON | 51.55 | 46.68 | **1.05** | the paper's row (`3_01_toucan_32B_v2_…`) |
+| ② | append OFF, think ON | **55.67** | **48.89** | **8.54** | **this run** |
+| ③ | append OFF, think OFF | — | 38.78 | **14.33** | DSAI `qwen3_8b_toucan32B_v2_sft_no_sys_append_no_think` |
+
+**Append ablation (① vs ②), the only difference is the append:** ASR 1.05 → 8.54 (**+7.49**), at a cost of 4.12 benign
+and 2.21 UA points. Concentrated in two suites: banking 4.86 → 26.39, slack 1.90 → 28.57, while travel 0.00 → 2.86 and
+workspace 0.17 → 1.61 barely move. Consistent with the same measurement on other checkpoints (Qwen3-4B 0.84 → 6.22,
+v3-para 2.00 → 7.59).
+
+**Think ablation (② vs ③), both with the append off:** ASR 8.54 → 14.33 (**+5.79**), UA 48.89 → 38.78.
+
+### Consequence for the paper's Table 3 / §5.5
+Table 3 currently reports the no-think column as ① vs ③ and prints **38.78** for the All row. Two problems:
+1. **38.78 is that run's Utility under Attack, not its ASR.** The per-suite ASR values in the table (30.56 / 44.76 /
+   16.43 / 3.93) are correct and identify the run exactly, but weighted by the attacked counts (144/105/140/560) they
+   aggregate to **14.33**, not 38.78 — 38.78 is what the same weighting gives for UA.
+2. **Two variables change between the columns.** The think column is append ON, the no-think column is append OFF
+   (confirmed from that run's slurm log: `QWEN_SAFE_AGENT_SYS_APPEND=0 QWEN_SAFE_AGENT_ENABLE_THINKING=0`). Of the
+   1.05 → 14.33 rise, **+7.49 is the append and +5.79 is the think**.
+With row ② the two can now be reported separately, and the think column can be made single-variable.
