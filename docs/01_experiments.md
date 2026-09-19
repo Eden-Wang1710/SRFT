@@ -544,3 +544,33 @@ Table 3 currently reports the no-think column as ① vs ③ and prints **38.78**
    (confirmed from that run's slurm log: `QWEN_SAFE_AGENT_SYS_APPEND=0 QWEN_SAFE_AGENT_ENABLE_THINKING=0`). Of the
    1.05 → 14.33 rise, **+7.49 is the append and +5.79 is the think**.
 With row ② the two can now be reported separately, and the think column can be made single-variable.
+
+### ABL-APPEND (cont.) — the append on an UNTRAINED base (2026-09-19)
+Run `agentdojo/runs/base_append_think512` (jobs 3109372–81, stats 3109382): Qwen3-8B, **no LoRA**, append ON, think 512.
+Every shard's banner verified for `LORA=/nonexistent_base_model_fallback … exists: False`, `SYS_APPEND=1`, `THINK=1`,
+`THINK_BUDGET=512`. Per suite Benign / UA / ASR: banking 75.00 / 45.83 / 36.81 · slack 80.95 / 54.29 / 54.29 ·
+travel 65.00 / 41.43 / 9.29 · workspace 70.00 / 62.14 / 3.04 · **ALL 72.16 / 55.74 / 14.75**.
+
+**ASR, Qwen3-8B, think 512:**
+
+| | w/o append | w/ append | append is worth |
+|---|---|---|---|
+| Untrained base | 16.97 | **14.75** | −2.21 |
+| SR-Agent (v0) | 8.54 | **1.05** | **−7.48** |
+
+The defence does not come from the appended instruction: with the append but no training the ASR is still 14.75, which
+is 14× SR-Agent's 1.05 and barely below the undefended 16.97. Training without the append already reaches 8.54. The
+append is **3.4× more effective on the trained model** (7.48 vs 2.21 points) — it behaves as a trigger for a capability
+the training installed, not as a defence in itself. The same pairing at think 1024, both runs from this pipeline,
+agrees: base 17.49 → 13.80 (−3.69).
+
+**Caveat on the cross-pipeline cell.** The base w/o-append number (16.97) is the un-migrated DSAI-era
+`attack_stats_Qwen_Qwen3-8B_baseline.csv`; the w/-append number is ours. A same-pipeline think-512 base w/o-append run
+was proposed and declined, so that one comparison spans two pipelines. It does not change the conclusion: every estimate
+of the untrained base sits at 16.3–17.5 without the append and 13.8–14.8 with it.
+
+**Open discrepancy this exposes in the paper's Table 2 base row.** Our fresh base runs give **Benign 72.16** (think 512
+with the append here, and think 1024 without it in `base_think1024_noappend`), while the paper's base row reports
+**60.82**, from that same DSAI-era CSV. An 11-point gap on the same base model. This is the same class of problem as the
+already-flagged `docs/02` note that the CSV's ASR is 16.97 where the paper says 17.91. If the 60.82 is understated, the
+utility cost attributed to SR-Agent in Table 2 is understated with it. Not investigated further.
