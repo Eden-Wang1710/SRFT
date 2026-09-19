@@ -481,9 +481,30 @@ Part of the 60 % may be the model being off-distribution rather than the absence
 matched (SR-Agent-Qwen trained and evaluated with think; base Qwen3-8B reasons natively), so ABL-Q8 YYN is the only
 mismatched cell in the table.
 
-**YNN (target think OFF both ends) is therefore the decisive run** — it is the matched one. Its attacker reward took off
-the same way (to 1.0–1.8 at ~40 %), eval job 3090927 running. If YNN is also high the mismatch objection is answered; if
-YNN stays low, YYN's 60 % is mostly mismatch and cannot be cited as evidence about reflection.
+**YNN (target think OFF both ends) — job 3090926 train / 3090927 eval, FINAL 2026-09-18. The mismatch objection is
+answered: it is just as high.** Curve: 1 0 2 1 5 5 7 17 27 30 30 33 29 50 58 57 56 59 53 60 → **final 60, peak 60,
+last-5 mean 57.0**. Attacker reward took off the same way (to 1.0–1.8 at ~40 %).
+
+| run (RL-Hammer, Qwen family) | final | last-5 | peak |
+|---|---|---|---|
+| Qwen3-8B undefended, run 1 / run 2 | 54 / 63 | 59.0 / 65.8 | 63 / **73** |
+| **ABL-Q8, think ON (YYN)** | **60** | 54.8 | 69 |
+| **ABL-Q8, think OFF (YNN)** | **60** | 57.0 | 60 |
+| SR-Agent-Qwen3-8B (full SRFT), run 1 / run 2 | 32 / 2 | 31.2 / 2.4 | 42 / 5 |
+
+Both think settings land on exactly the same endpoint (60), at the undefended base's level and far above full SRFT. The
+agreement is what makes this usable: the ablation's vulnerability does not depend on whether the model is asked to think
+at inference, so it cannot be explained by ABL-Q8 being off-distribution in the YYN cell.
+
+**What is still missing before this goes in the paper:**
+1. **One run per setting.** Both curves are high, which is the trustworthy direction under the `docs/12` asymmetry (a
+   flat curve would prove nothing), but a second seed per setting — or the transfer matrix — would make it solid.
+2. **The transfer matrix has not been run for the Qwen family at all**, including for the *published* curves (`docs/12`
+   notes this explicitly). On Llama it reversed the conclusion entirely. Cost is minutes: replay the best attacker of
+   each Qwen run (base YYN, SR-Agent YYY, ABL-Q8 YYN/YNN) against every Qwen target, report max per target.
+3. **The two bases disagree.** ABL-A on Llama was *more* robust without reflection (transfer max 9 vs 48); ABL-Q8 on
+   Qwen collapses to the undefended level. A plausible reason — untested — is that SR-Agent-Llama writes its reflection
+   as ordinary text while Qwen uses the native think channel, so the attack surfaces differ.
 
 **Also unresolved: this contradicts ABL-A on Llama**, where the no-reflection arm was *more* robust (transfer-matrix max
 9 vs 48). Two bases, opposite answers; that needs an explanation before either is used in the paper.
