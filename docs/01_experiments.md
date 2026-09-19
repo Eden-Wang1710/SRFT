@@ -454,3 +454,36 @@ scripts re-check it at runtime). Behaviour of the existing `sr_llama` / `llama_b
 were 32 and 3), a single curve cannot be read as robustness. Whatever these two produce, the **transfer matrix** is
 required before any conclusion: replay the best attacker of each run — including the existing base-Qwen (YYN) and
 SR-Agent-Qwen (YYY) attackers — against every Qwen target and take the max per target.
+
+### ABL-Q8 results — RL-Hammer
+Training 3089151: 1 h 29 on one H100 (c2-gpu-011), 1,137 steps, train_loss 1.023 (v0's was 0.978; the targets differ —
+one contains the reflection, the other does not — so the two losses are not comparable, recorded only for the log).
+
+**YYN (target think ON, no append) — job 3090924 train / 3090925 eval, FINAL 2026-09-18.** Banner verified on both jobs:
+`TARGET=sr_qwen SR_LORA=…abl_q8_nothink… TBASE=Qwen/Qwen3-8B FMT=qwen THINK=True SYS_APPEND=False`.
+
+ASR per epoch: 3 2 4 9 21 33 46 60 63 63 66 69 61 60 61 63 58 56 37 60 → **final 60, peak 69, last-5 mean 54.8**.
+
+| target (RL-Hammer, Qwen family) | final | peak |
+|---|---|---|
+| Qwen3-8B undefended, run 1 / run 2 | 54 / 63 | 63 / **73** |
+| **ABL-Q8 (w/o self-reflection)** | **60** | **69** |
+| SR-Agent-Qwen3-8B (full SRFT), run 1 / run 2 | 32 / 2 | 42 / 5 |
+
+The ablation sits on top of the undefended base: removing the reflection supervision leaves the model as exposed to the
+adaptive attacker as no defence at all, while full SRFT is far below. The attacker's reward took off from ~0.4 to 1.0–1.7
+in the 40–60 % window — the `docs/12` signature of a search that found an attack — so this high curve is trustworthy in
+the direction that matters (a flat curve would not have been).
+
+**Caveat that decides whether this is publishable: YYN is train/inference MISMATCHED.** ABL-Q8 was trained with
+`enable_thinking: false`, so it has never produced reasoning after a `<think>` tag, yet YYN evaluates it with think on.
+Part of the 60 % may be the model being off-distribution rather than the absence of reflection. Every comparison row is
+matched (SR-Agent-Qwen trained and evaluated with think; base Qwen3-8B reasons natively), so ABL-Q8 YYN is the only
+mismatched cell in the table.
+
+**YNN (target think OFF both ends) is therefore the decisive run** — it is the matched one. Its attacker reward took off
+the same way (to 1.0–1.8 at ~40 %), eval job 3090927 running. If YNN is also high the mismatch objection is answered; if
+YNN stays low, YYN's 60 % is mostly mismatch and cannot be cited as evidence about reflection.
+
+**Also unresolved: this contradicts ABL-A on Llama**, where the no-reflection arm was *more* robust (transfer-matrix max
+9 vs 48). Two bases, opposite answers; that needs an explanation before either is used in the paper.
