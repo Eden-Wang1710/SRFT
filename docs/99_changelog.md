@@ -255,3 +255,8 @@
 - 2026-09-21: AgentDyn goes into the paper appendix after all (user + 学长: UA drop framed as fail-safe behaviour, benign utility is
   what must hold). `paper/appendix_agentdyn.tex` written from docs/15 §7; `docs/15_agentdyn.md` copied to main from exp/agentdyn
   (the code, env and 1,240 trajectories stay on that branch). docs/15 §8 "not reported" is superseded by this entry.
+- 2026-09-21: `docs/16_rlhammer_share.md` written for the user's advisor to circulate to other students: skipjack path
+  (`/weka/scratch/jhu/cxiao13/zwang544/SRFT/injecAgent-rl-harmmer/rl-injector/`), env `rlhammer`, the `submit_rlh.sh` one-liner,
+  the full GRPO recipe, the paper figure (`paper/fig_rlhammer.pdf` rendered to `paper/fig_rlhammer.png` for markdown), the
+  endpoint + per-run tables, and the three traps (run-to-run variance / reward-curve tell / ckpt-rotation). No new results.
+
