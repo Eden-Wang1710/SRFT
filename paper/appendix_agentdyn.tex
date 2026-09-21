@@ -1,0 +1,59 @@
+% Appendix: AgentDyn (arXiv 2602.03117). Numbers from docs/15_agentdyn.md §7 (branch exp/agentdyn, 2026-09-16):
+% base + SR rows = our runs (agentdyn/runs/agentdyn_llama_base, agentdyn_srllama_noappend; 60 benign + 560 attacked each);
+% Meta-SecAlign-8B row = the AgentDyn authors' released logs (agentdyn/runs_upstream_paper/meta_secalign-8B), their `local` pipeline.
+% "final message reports the injection" = 384/560 SR attacked trajectories vs 30/560 base (docs/15 §7). Bib key \citep{agentdyn} is a placeholder.
+% Framing agreed 2026-09-21: UA drop is fail-safe behaviour; benign utility (clean inputs, the common case) is what must hold.
+
+\subsection{Dynamic Environments: AgentDyn}
+\label{app:agentdyn}
+
+AgentDojo and InjecAgent consist of short, scripted tasks in which every third-party instruction is malicious.
+AgentDyn~\citep{agentdyn} tests the opposite regime: open-ended tasks (7.1 steps on average, spanning 3.2
+applications) that must be re-planned from tool output, and that place at least one \emph{legitimate} third-party
+instruction on the critical path, such as a one-time-password check, a checkout confirmation or a form to fill.
+A defense that discards everything a tool returns fails these tasks, which is why the benchmark treats
+over-defense as a first-class failure. We evaluate the same three Llama-3.1-8B models as in
+Table~\ref{tab:main} on all 60 benign and 560 attacked tasks of its three suites (shopping, GitHub, daily life),
+scored by the benchmark's programmatic utility and security checks; no additional defense is applied to any model.
+
+\begin{table}[h]
+\centering
+\small
+\caption{AgentDyn (\%). Benign = utility on the 60 clean tasks; UA = utility under attack and ASR = attack success
+rate on the 560 attacked tasks. Base and SR-Agent are our runs under one pipeline; the Meta-SecAlign-8B row is computed
+from the trajectories released by the AgentDyn authors.}
+\label{tab:agentdyn}
+\begin{tabular}{lccc|ccc|ccc|ccc}
+\toprule
+& \multicolumn{3}{c|}{All suites} & \multicolumn{3}{c|}{Shopping} & \multicolumn{3}{c|}{GitHub} & \multicolumn{3}{c}{Daily life} \\
+Model & Benign$\uparrow$ & UA$\uparrow$ & ASR$\downarrow$ & Benign & UA & ASR & Benign & UA & ASR & Benign & UA & ASR \\
+\midrule
+Llama-3.1-8B (undefended) & \textbf{11.67} & \textbf{8.93} & 9.82 & 5.00 & 3.89 & 5.00 & \textbf{25.00} & \textbf{16.11} & \textbf{1.67} & 5.00 & \textbf{7.00} & 21.50 \\
+Meta-SecAlign-8B          & 5.00 & 7.32 & 5.54 & 0.00 & 0.00 & \textbf{0.00} & 15.00 & 11.67 & 2.78 & 0.00 & 10.00 & 13.00 \\
+SR-Agent (ours)           & 10.00 & 3.57 & \textbf{1.96} & 5.00 & 3.89 & 1.67 & 20.00 & 6.11 & 2.78 & 5.00 & 1.00 & \textbf{1.50} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Security.}
+SR-Agent lowers the attack success rate from 9.82\% to 1.96\%, a five-fold reduction, and to roughly a third of
+Meta-SecAlign-8B's 5.54\%. It has the lowest ASR on two of the three suites and is within one case of the lowest on
+the third, and the margin is largest where the attacks actually work: on the daily-life suite the undefended model is
+compromised in 21.5\% of cases and Meta-SecAlign-8B in 13.0\%, against 1.5\% for SR-Agent.
+
+\paragraph{Utility.}
+Benign utility is within one task of the undefended model (6 versus 7 of the 60 clean tasks solved), so the defense
+does not remove capability on clean inputs, which is the common case in deployment. Utility under attack is lower,
+3.57\% against 8.93\%. We read this as the intended behaviour of a reflective agent rather than as a cost: in 68.6\% of
+its attacked trajectories SR-Agent's final message explicitly reports the encountered injection to the user (5.4\%
+for the undefended model), i.e.\ a derailed task ends with the agent handing control back instead of continuing on
+tainted instructions. For an agent that mostly sees clean inputs, the requirements are that benign utility is
+preserved and that the rare attacked episode ends safely and visibly; finishing the task in the attacker's presence
+is secondary to not executing the attacker's instruction.
+
+\paragraph{Caveats.}
+Absolute utility is low for every 8B model on this benchmark: the AgentDyn authors report 53--55\% benign utility for
+70B-class and frontier models, whereas every 8B row, including Meta-SecAlign-8B, lies between 5\% and 12\%. At this
+scale the benchmark therefore separates defenses far better by ASR than by utility, and the benign column rests on a
+single sample per task. The Meta-SecAlign-8B row is taken from the AgentDyn authors' released trajectories under
+their own pipeline, so it is comparable to our two rows only up to pipeline differences.

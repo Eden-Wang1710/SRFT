@@ -252,3 +252,6 @@
 - 2026-09-19 Appendix A.3 (SR-Agent system-prompt append) in the case-study format → `paper/prompt_sr_agent_system.tex`; text taken verbatim from `qwen_32b_think_llm_safe_agent.py` (the figure omitted ", e.g., in tool response"); states that only the Qwen3 SR-Agent models use it and SR-Agent-Llama is evaluated without it.
 - 2026-09-21: RL-Hammer case-study takeaways now quote the Table 6 two-run means (Llama 98.5/17.5, Qwen 59.5/17.0) and label the
   single-run numbers of the checkpoints shown (Llama run 1 ckpt-1020: 98/32; Qwen YYN ckpt-969: 63, YYY1 ckpt-1020: 32) as such.
+- 2026-09-21: AgentDyn goes into the paper appendix after all (user + 学长: UA drop framed as fail-safe behaviour, benign utility is
+  what must hold). `paper/appendix_agentdyn.tex` written from docs/15 §7; `docs/15_agentdyn.md` copied to main from exp/agentdyn
+  (the code, env and 1,240 trajectories stay on that branch). docs/15 §8 "not reported" is superseded by this entry.
