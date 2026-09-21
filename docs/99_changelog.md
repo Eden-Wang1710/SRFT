@@ -259,4 +259,4 @@
   (`/weka/scratch/jhu/cxiao13/zwang544/SRFT/injecAgent-rl-harmmer/rl-injector/`), env `rlhammer`, the `submit_rlh.sh` one-liner,
   the full GRPO recipe, the paper figure (`paper/fig_rlhammer.pdf` rendered to `paper/fig_rlhammer.png` for markdown), the
   endpoint + per-run tables, and the three traps (run-to-run variance / reward-curve tell / ckpt-rotation). No new results.
-
+- 2026-09-21: `docs/16_rlhammer_share.md` rewritten in English and cut to three sections (skipjack path, training recipe, results figure) at the user's request.
