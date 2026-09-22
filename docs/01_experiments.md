@@ -509,6 +509,44 @@ at inference, so it cannot be explained by ABL-Q8 being off-distribution in the 
 **Also unresolved: this contradicts ABL-A on Llama**, where the no-reflection arm was *more* robust (transfer-matrix max
 9 vs 48). Two bases, opposite answers; that needs an explanation before either is used in the paper.
 
+## ABL-Q8-NOLAST — w/o action analysis on Qwen3-8B (branch `exp/ablation`, submitted 2026-09-22, WashU)
+
+**Why (reviewer objection, 2026-09-22):** the existing train-time ablation (ABL-Q8) compares *action only* with
+*reflection + action*, so it shows the reflection supervision matters but not that the paper's distinctive ingredient
+— reasoning about the agent's own sampled failed actions — matters, as opposed to generic safety-CoT distillation.
+Paragraph 3 of the reflection is the only place the Stage-II candidate actions enter the supervision (`docs/01 §ABL-B`:
+candidate mentions 76 % → 0.6 % when it is dropped); paragraphs 1–2 (goal, injection identification) need no candidates.
+This arm removes paragraph 3 and keeps everything else. User decision: this P0 design (no expert-LLM regeneration; the
+"same expert, candidates withheld" arm and the matched-regeneration arm were judged unnecessary).
+
+**Read it correctly (recorded before the result):** the arm is informative in one direction. If it stays as robust as
+full SRFT, the failure-contrast supervision contributes nothing measurable. If it collapses, the collapse is attributable
+to paragraph 3 as a whole — expert-action rationale (30.5 % of think tokens) *and* candidate consequences (12.4 %) — not
+to the failure contrast alone. Prior facts that lower the expectation for a large effect: candidates were sampled from
+Qwen3-32B, not the trained 8B; only 23 % of injected steps have a candidate that follows the injection (`docs/04 §0b`).
+
+### Data — `toucan_32B_v2_nolast.json` (`ablation/build_nolast.py`, report `.report.json`)
+`toucan_32B_v2.json` with the last paragraph of every `<think>` removed (paragraphs = blank-line-separated; 22,426 of
+22,456 thinks have exactly 3, the 30 outliers also lose only their last). Verified against v2: same 3,707 trajectories
+and turn sequence, **0 of 22,456 answers changed**, all 15,564 `function_call` values valid JSON, the 3,185 think-only
+turns keep their (shortened) think — so, unlike ABL-Q8, **no trajectory splitting and the training distribution is
+matched to v0 turn for turn**. Think words −42.9 % (6.56 M → 3.75 M); thinks mentioning a candidate / sub-optimal
+action 17,119 → 129.
+
+### Training — job 3144423
+`examples/train_lora/qwen3_8b_lora_sft_abl_nolast_v2.yaml` = the v0 recipe with only `dataset` and `output_dir` changed
+(`enable_thinking: true` as in v0, since a think is present). 1 GPU, GA 16 (= v0's 4 × GA 4), 3 epochs.
+Ckpt `saves/qwen3-8b/lora/abl_q8_nolast_v2_sft_8k_r64_GA4_qkvo_3epoch_5e-6`.
+
+### Evaluation — RL-Hammer YYY, two seeds, chained `afterok` on the training job
+Setting = the published SR-Agent-Qwen setting exactly (think on, **append on**, Qwen template), not ABL-Q8's YYN:
+| run | seed | jobs (train → eval) |
+|---|---|---|
+| `iclr_rlh_ablq8_nolast_yyy` | 1024 | 3144424 → 3144425 |
+| `iclr_rlh_ablq8_nolast_yyy_r2` | 2048 | 3144426 → 3144427 |
+Reference: SR-Agent-Qwen YYY1/YYY2 final 32 / 2 (peak 42 / 5), base Qwen3-8B YYN 54 / 65, ABL-Q8 60 / 60.
+Still to do once the curves exist: the Qwen transfer matrix (never run for this family); AgentDojo static eval of the ckpt.
+
 ## ABL-APPEND — the v0 append / think ablation, disentangled (2026-09-19)
 
 Run `agentdojo/runs/v0_noappend_think512` (jobs 3106749–58, stats 3106759) fills the cell that was missing: the **v0
