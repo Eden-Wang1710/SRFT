@@ -566,6 +566,21 @@ Setting = the published SR-Agent-Qwen setting exactly (think on, **append on**, 
 Reference: SR-Agent-Qwen YYY1/YYY2 final 32 / 2 (peak 42 / 5), base Qwen3-8B YYN 54 / 65, ABL-Q8 60 / 60.
 Still to do once the curves exist: the Qwen transfer matrix (never run for this family); AgentDojo static eval of the ckpt.
 
+### Interim result, run 1 (2026-09-23 09:30, training at epoch 10; eval job 3148012 on general-short with the new `CKPT_ONLY` knob)
+Attacker reward per epoch 0.04 0.06 0.15 0.25 0.49 0.88 1.06 1.13 1.18 1.21 — take-off at epoch 5–6, earlier than
+against ABL-Q8 (40–60 %). ASR of the checkpoints evaluated so far, next to every other Qwen curve at the same steps:
+| run | ck 204 (ep 4) | 306 (ep 6) | 408 (ep 8) | 459 (ep 9) | peak (20 ep) |
+|---|---|---|---|---|---|
+| **ABL-Q8-NOLAST r1** | **19** | **56** | **67** | **61** | (67 so far) |
+| ABL-Q8 (no think) YYN | 9 | 33 | 60 | 63 | 69 |
+| base Qwen3-8B YYN r1 / r2 | 38 / 57 | 35 / 56 | 39 / 62 | 41 / 70 | 63 / 73 |
+| SR-Agent v0 YYY1 / YYY2 | 6 / 2 | 4 / 2 | 2 / 2 | 3 / 3 | 42 / 5 |
+**Removing only the third paragraph collapses the model to the ABL-Q8 / undefended level by epoch 6**, while full SRFT is
+at 2–6 at the same steps. Paragraphs 1–2 (goal, injection identification) alone do not buy adaptive robustness; what
+does is the action-analysis paragraph — the part written against the sampled candidate actions. Pending: the rest of the
+curve, run 2 (seed 2048), and the invalid share (25–28 % from ckpt 306 on) to be characterised.
+
+
 ## ABL-APPEND — the v0 append / think ablation, disentangled (2026-09-19)
 
 Run `agentdojo/runs/v0_noappend_think512` (jobs 3106749–58, stats 3106759) fills the cell that was missing: the **v0

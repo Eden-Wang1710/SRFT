@@ -254,4 +254,6 @@
 - 2026-09-23: ABL-Q8-NOLAST SFT 3144423 done (696 steps, 2 h 19, loss 0.874; limit cut too close — `ablation/sft_resume.sbatch`
   afternotok insurance added, unused). Static InjecAgent sanity 5/100 (v0 3, base 1), adapter healthy. RL-Hammer YYY ×2
   (3144424/6) released, waiting for 4-GPU slots.
+- 2026-09-23 09:30: ABL-Q8-NOLAST run 1 interim (eval_attacker_ckpts.sbatch gained `CKPT_ONLY`): ASR 19 / 56 / 67 / 61 at
+  epochs 4 / 6 / 8 / 9 vs SR-Agent v0 2–6 at the same steps — the no-paragraph-3 model collapses like ABL-Q8. Ledger §ABL-Q8-NOLAST.
 

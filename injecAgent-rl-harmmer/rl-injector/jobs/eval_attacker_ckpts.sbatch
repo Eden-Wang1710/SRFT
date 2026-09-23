@@ -34,6 +34,11 @@ echo "cluster=$SRFT_CLUSTER node=$(hostname) job=${SLURM_JOB_ID:-} start=$(date)
 echo "TARGET=$TARGET TGT=$TGT TBASE=$TBASE FMT=$FMT THINK=$TTHINK SYS_APPEND=$APPEND RUN_NAME=$RUN_NAME CKPT_DIR=$CKPT_DIR"
 
 mapfile -t CKPTS < <(find "$CKPT_DIR" -maxdepth 1 -mindepth 1 -type d -name 'checkpoint-*' | sort -V)
+# CKPT_ONLY="204 306 ..." (2026-09-23): evaluate only these steps — for an interim look at a run that is still training
+# (general-short, 30 min ≈ 5 checkpoints); the chained full eval skips whatever this already wrote.
+if [ -n "${CKPT_ONLY:-}" ]; then
+  sel=(); for c in "${CKPTS[@]}"; do for k in $CKPT_ONLY; do [ "$(basename "$c")" = "checkpoint-$k" ] && sel+=("$c"); done; done; CKPTS=("${sel[@]}")
+fi
 [ "${#CKPTS[@]}" -gt 0 ] || { echo "no checkpoint-* in $CKPT_DIR" >&2; exit 1; }
 for c in "${CKPTS[@]}"; do
   name=$(basename "$c")
