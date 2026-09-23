@@ -545,6 +545,18 @@ Lesson: I cut the limit to 3 h from ABL-Q8's 1 h 29 — wrong reference, its seq
 41 min to spare. `ablation/sft_resume.sbatch` (afternotok insurance, resumes from the newest epoch checkpoint, OR-ed into
 the downstream dependencies with `afterok:A?afterok:B`) was submitted as a safety net and cancelled unused.
 
+### Static sanity check — job 3146480 (general-short, 3 min, 2026-09-23)
+`jobs/static_eval_qwen.sbatch` with `SR_LORA=<nolast ckpt> SR_CASE=ablq8_nolast_append CASES=srqwen_append` (new knobs so the
+v0 output dir is not overwritten): InjecAgent's own injection, no attacker, think on, append on, 1024 tokens — the same
+vLLM+LoRA path the RL-Hammer eval uses. → `outputs/iclr_static_qwen_ablq8_nolast_append_/`.
+| target (static, 100 cases) | succ | unsucc | invalid | unclosed think |
+|---|---|---|---|---|
+| **ABL-Q8-NOLAST** (append) | **5** | 90 | 5 | 0 |
+| SR-Agent v0 (append) | 3 | 93 | 4 | 0 |
+| base Qwen3-8B (no append) | 1 | 99 | 0 | 3 |
+The adapter loads, reasons and closes its think on every case; 5 vs 3 is sampling noise (T 0.6). Static ASR says nothing
+about the question at hand — the base is lowest of the three — which is why the arm is judged under RL-Hammer.
+
 ### Evaluation — RL-Hammer YYY, two seeds, chained `afterok` on the training job
 Setting = the published SR-Agent-Qwen setting exactly (think on, **append on**, Qwen template), not ABL-Q8's YYN:
 | run | seed | jobs (train → eval) |

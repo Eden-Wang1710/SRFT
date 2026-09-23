@@ -251,4 +251,7 @@
   experience" from generic safety CoT). `ablation/build_nolast.py` → `toucan_32B_v2_nolast.json` (last think paragraph
   dropped, 0 answers changed, no splitting); recipe `qwen3_8b_lora_sft_abl_nolast_v2.yaml`; train 3144423 → RL-Hammer YYY
   seeds 1024/2048 (3144424/5, 3144426/7). Ledger section in docs/01. One-direction caveat recorded there.
+- 2026-09-23: ABL-Q8-NOLAST SFT 3144423 done (696 steps, 2 h 19, loss 0.874; limit cut too close — `ablation/sft_resume.sbatch`
+  afternotok insurance added, unused). Static InjecAgent sanity 5/100 (v0 3, base 1), adapter healthy. RL-Hammer YYY ×2
+  (3144424/6) released, waiting for 4-GPU slots.
 
