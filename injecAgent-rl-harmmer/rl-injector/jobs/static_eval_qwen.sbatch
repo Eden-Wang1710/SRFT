@@ -27,6 +27,12 @@ run() {  # case target append
     --validation_data_path data/InjecAgent/dataset/test.json --val_batch_size "${VAL_BATCH_SIZE:-32}" --val_max_new_tokens 1024 \
     --enable_wandb False --save_name default --run_name "iclr_static_qwen_${case}_attack"
 }
-run srqwen_append "$SR_LORA" True
-run qwenbase_noappend "$TBASE" False
+# CASES (2026-09-23): subset to run; SR_CASE renames the SR output dir so another LoRA (e.g. an ablation ckpt) does not overwrite the v0 result.
+for c in ${CASES:-srqwen_append qwenbase_noappend}; do
+  case "$c" in
+    srqwen_append)     run "${SR_CASE:-srqwen_append}" "$SR_LORA" True ;;
+    qwenbase_noappend) run qwenbase_noappend "$TBASE" False ;;
+    *) echo "unknown case $c" >&2; exit 2 ;;
+  esac
+done
 echo "end=$(date)"

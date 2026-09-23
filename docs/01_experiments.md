@@ -533,10 +533,17 @@ turns keep their (shortened) think — so, unlike ABL-Q8, **no trajectory splitt
 matched to v0 turn for turn**. Think words −42.9 % (6.56 M → 3.75 M); thinks mentioning a candidate / sub-optimal
 action 17,119 → 129.
 
-### Training — job 3144423
+### Training — job 3144423 (DONE 2026-09-23)
 `examples/train_lora/qwen3_8b_lora_sft_abl_nolast_v2.yaml` = the v0 recipe with only `dataset` and `output_dir` changed
-(`enable_thinking: true` as in v0, since a think is present). 1 GPU, GA 16 (= v0's 4 × GA 4), 3 epochs.
-Ckpt `saves/qwen3-8b/lora/abl_q8_nolast_v2_sft_8k_r64_GA4_qkvo_3epoch_5e-6`.
+(`enable_thinking: true` as in v0, since a think is present). 1 GPU, GA 16 (= v0's 4 × GA 4), 3 epochs = **696 steps**
+(same schedule length as v0; ABL-Q8 had 1,137 because its split data has 6,056 trajectories). Banner checked:
+`dataset: toucan_32B_v2_nolast`, `enable_thinking: true`, 3,707 examples. c2-gpu-013 (H100), 10.8 s/step,
+**2 h 19 wall, train_loss 0.874** (v0 0.978, ABL-Q8 1.023 — different targets, not comparable). Waited 7 h in the queue
+(fairshare exhausted, Priority=1). Ckpt `saves/qwen3-8b/lora/abl_q8_nolast_v2_sft_8k_r64_GA4_qkvo_3epoch_5e-6`,
+`adapter_model.safetensors` sha256 starts `6d254b1660bdb4ff`.
+Lesson: I cut the limit to 3 h from ABL-Q8's 1 h 29 — wrong reference, its sequences are 84 % shorter; the run finished with
+41 min to spare. `ablation/sft_resume.sbatch` (afternotok insurance, resumes from the newest epoch checkpoint, OR-ed into
+the downstream dependencies with `afterok:A?afterok:B`) was submitted as a safety net and cancelled unused.
 
 ### Evaluation — RL-Hammer YYY, two seeds, chained `afterok` on the training job
 Setting = the published SR-Agent-Qwen setting exactly (think on, **append on**, Qwen template), not ABL-Q8's YYN:
