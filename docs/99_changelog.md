@@ -257,4 +257,6 @@
 - 2026-09-23 09:30: ABL-Q8-NOLAST run 1 interim (eval_attacker_ckpts.sbatch gained `CKPT_ONLY`): ASR 19 / 56 / 67 / 61 at
   epochs 4 / 6 / 8 / 9 vs SR-Agent v0 2–6 at the same steps — the no-paragraph-3 model collapses like ABL-Q8. Ledger §ABL-Q8-NOLAST.
 - 2026-09-23 15:20: ABL-Q8-NOLAST run 1 complete: final 65, last-5 65.0, peak 67 (ep 8) — undefended-base level. Run 2 training.
+- 2026-09-23 16:30: paper (main e6db0f47): `sec_ablation_v2.tex` + `fig_ablation_v2.pdf` + `sec_ablation_appendix_v2.tex` add the
+  w/o-failure-experience arm (run 1 only; `<<r2>>` markers for tomorrow's two-run update). `plot_ablation.py` / `tab_ablation.py --v2`.
 
