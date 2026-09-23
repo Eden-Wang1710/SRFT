@@ -68,7 +68,7 @@ CURVES = [
 # think + append on as for SR-Agent) and writes fig_ablation_v2.pdf; the original figure/list are left untouched.
 # Add "iclr_rlh_ablq8_nolast_yyy_r2_" to the run list once run 2 (seed 2048) has been evaluated.
 NOLAST_RUNS = ["iclr_rlh_ablq8_nolast_yyy_"]
-CURVES_V2 = CURVES[:2] + [("w/o failure experience", "#009E73", "D", "-", NOLAST_RUNS)] + CURVES[2:]
+CURVES_V2 = CURVES[:2] + [("w/o failure experience", "#000000", "D", "-", NOLAST_RUNS)] + CURVES[2:]
 V2 = "--v2" in sys.argv
 
 
