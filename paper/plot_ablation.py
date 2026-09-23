@@ -7,7 +7,7 @@ training and evaluation. No run-to-run band is drawn (user preference, 2026-09-1
 
     conda activate agentdojo && python paper/plot_ablation.py
 """
-import json, re
+import json, re, sys
 from pathlib import Path
 
 import matplotlib
@@ -64,12 +64,18 @@ CURVES = [
     ("w/o reflection, think on", "#CC79A7", "^", "-", ["iclr_rlh_ablq8_yyn_"]),
     ("w/o reflection, think off", "#CC79A7", "v", "--", ["iclr_rlh_ablq8_ynn_"]),
 ]
+# --v2 (2026-09-23): adds the "w/o failure experience" arm (ABL-Q8-NOLAST, docs/01: paragraph 3 of the reflection removed,
+# think + append on as for SR-Agent) and writes fig_ablation_v2.pdf; the original figure/list are left untouched.
+# Add "iclr_rlh_ablq8_nolast_yyy_r2_" to the run list once run 2 (seed 2048) has been evaluated.
+NOLAST_RUNS = ["iclr_rlh_ablq8_nolast_yyy_"]
+CURVES_V2 = CURVES[:2] + [("w/o failure experience", "#009E73", "D", "-", NOLAST_RUNS)] + CURVES[2:]
+V2 = "--v2" in sys.argv
 
 
 def main():
     style()
     fig, ax = plt.subplots(figsize=(6.0, 3.4))
-    for label, color, marker, ls, names in CURVES:
+    for label, color, marker, ls, names in (CURVES_V2 if V2 else CURVES):
         ep, mean, lo, hi = mean_band(names)
         ax.plot(ep, mean, color=color, marker=marker, linestyle=ls, label=label,
                 markerfacecolor="white", markeredgewidth=1.2, clip_on=False, zorder=3)
@@ -82,9 +88,9 @@ def main():
     ax.grid(axis="y", color="0.88", linewidth=0.7)
     ax.set_axisbelow(True)
     ax.legend(frameon=False, handlelength=2.2, columnspacing=1.6, handletextpad=0.5,
-              loc="upper center", bbox_to_anchor=(0.5, -0.18), ncol=2)
+              loc="upper center", bbox_to_anchor=(0.5, -0.18), ncol=3 if V2 else 2)
     fig.subplots_adjust(bottom=0.34)
-    out = ROOT / "paper" / "fig_ablation.pdf"
+    out = ROOT / "paper" / ("fig_ablation_v2.pdf" if V2 else "fig_ablation.pdf")
     fig.savefig(out)
     print(f"  -> {out}")
 
