@@ -259,4 +259,6 @@
 - 2026-09-23 15:20: ABL-Q8-NOLAST run 1 complete: final 65, last-5 65.0, peak 67 (ep 8) — undefended-base level. Run 2 training.
 - 2026-09-23 16:30: paper (main e6db0f47): `sec_ablation_v2.tex` + `fig_ablation_v2.pdf` + `sec_ablation_appendix_v2.tex` add the
   w/o-failure-experience arm (run 1 only; `<<r2>>` markers for tomorrow's two-run update). `plot_ablation.py` / `tab_ablation.py --v2`.
+- 2026-09-23 17:00: ABL-Q8-NOLAST run 2 (3144426/7) cancelled at the user's decision — run 1 (final 65, peak 67) is the reported
+  result, single run. `sec_ablation_v2.tex` `<<r2>>` markers removed; numbers final.
 

@@ -576,7 +576,11 @@ Attacker reward: 0.04 → 1.35, take-off at epoch 5–6, plateau ≈ 1.30 from e
 | base Qwen3-8B (YYN) r1 / r2 | 54 / 65 | 59.0 / 65.8 | 63 / 73 |
 | SR-Agent v0 (full SRFT) YYY1 / YYY2 | 32 / 2 | 31.2 / 2.4 | 42 / 5 |
 The no-paragraph-3 model is as exposed as the undefended base and as the no-reflection model; the reflection's first two
-paragraphs on their own contribute nothing measurable under the adaptive attacker. Run 2 (seed 2048, 3144426) in progress.
+paragraphs on their own contribute nothing measurable under the adaptive attacker.
+**Run 2 (seed 2048, 3144426 → 3144427) cancelled by the user at epoch ~7 (2026-09-23 17:00): run 1 is judged sufficient.** Its reward
+had followed run 1's trajectory (0.03 → 0.32 by epoch 4). The arm is therefore reported as a single attacker run — stated as such in
+the figure caption, the appendix table (#Runs = 1) and the prose; the direction is the trustworthy one under the `docs/12` asymmetry.
+Partial checkpoints in `checkpoints/iclr_rlh_ablq8_nolast_yyy_r2/` (untracked) can be deleted.
 
 ### Interim result, run 1 (2026-09-23 09:30, training at epoch 10; eval job 3148012 on general-short with the new `CKPT_ONLY` knob)
 Attacker reward per epoch 0.04 0.06 0.15 0.25 0.49 0.88 1.06 1.13 1.18 1.21 — take-off at epoch 5–6, earlier than
