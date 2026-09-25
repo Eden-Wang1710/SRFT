@@ -276,3 +276,8 @@
   downloader 7 ×100, windows 8 ×32 = **38**); the other 285 distinct `task` strings (323 total) are Toucan user requests from other
   trajectories reused as injected instructions (1–9 uses each). 686/750 triggers; 3,455 distinct `combined` strings inserted.
   Other findings passed to the user: 17.91 → 16.97 (only the baseline CSV exists, 161/949), 3,698/22,339, 55M LoRA params, C.3 self-ref.
+- 2026-09-25: Appendix B.1 rewritten (`paper/prompt_attack_generation.tex`): + "Dataset Statistics" (per-platform table: user tasks /
+  38 malicious / 285 off-task requests / trajectories / steps / injected-observation share; reflection length 396 tok mean, median 401,
+  p10–p90 298–481, max 664 with the Llama tokenizer; 74 % of assistant tokens; 6.0 steps/traj; 15,492 calls + 6,847 answers;
+  3,806 tok/traj, 186 > 8k) and + one complete verbatim attacked trajectory (downloader_v2 ut7/it8, `../../root/.ssh` path traversal,
+  2/3 candidates followed) replacing the Minecraft snippet. Numbers from `toucan_32B_v3_base.json`, script in the session log.
