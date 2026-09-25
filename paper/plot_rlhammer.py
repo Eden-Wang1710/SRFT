@@ -136,7 +136,7 @@ def draw(curves, path, ymax=None, legend=None):
     print(f"  -> {path}")
 
 
-def draw_panels(panels, path, height=2.3, legend="inside"):
+def draw_panels(panels, path, height=2.6, legend="below"):
     """One wide figure, one axes per family, with a single shared legend.
 
     Both panels use the same colour semantics (undefended base / Meta-SecAlign / ours), so the legend is generic and
@@ -173,9 +173,9 @@ def draw_panels(panels, path, height=2.3, legend="inside"):
                         frameon=False, handlelength=1.5, handletextpad=0.4, labelspacing=0.2, borderaxespad=0)
         fig.subplots_adjust(wspace=0.08, bottom=0.22, top=0.88)
     else:
-        fig.legend(hs, ls, loc="lower center", bbox_to_anchor=(0.5, -0.04), ncol=3,
+        fig.legend(hs, ls, loc="lower center", bbox_to_anchor=(0.5, -0.02), ncol=3,
                    frameon=False, handlelength=1.8, columnspacing=2.2, handletextpad=0.5)
-        fig.subplots_adjust(wspace=0.08, bottom=0.26)
+        fig.subplots_adjust(wspace=0.08, bottom=0.30, top=0.89)
     fig.savefig(path)
     plt.close(fig)
     print(f"  -> {path}")

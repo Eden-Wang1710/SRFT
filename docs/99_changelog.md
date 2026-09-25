@@ -255,6 +255,6 @@
 - 2026-09-21: AgentDyn goes into the paper appendix after all (user + 学长: UA drop framed as fail-safe behaviour, benign utility is
   what must hold). `paper/appendix_agentdyn.tex` written from docs/15 §7; `docs/15_agentdyn.md` copied to main from exp/agentdyn
   (the code, env and 1,240 trajectories stay on that branch). docs/15 §8 "not reported" is superseded by this entry.
-- 2026-09-24: main-text space — `paper/fig_rlhammer.pdf` redrawn flat (448×161 pt instead of 448×226 pt, −29 % height): legend moved into
-  the empty band of panel (b), y-ticks every 25, fonts/markers unchanged; tex include and caption unchanged. Old layout still available
-  via `draw_panels(..., height=3.2, legend="below")`.
+- 2026-09-24: main-text space — `paper/fig_rlhammer.pdf` redrawn flat (448×184 pt instead of 448×226 pt, −19 % height): shared legend
+  kept in one row below both panels (an inside-panel-(b) variant was rejected: Meta-SecAlign is Llama-only), y-ticks every 25, fonts unchanged.
+  Tex include and caption unchanged; old layout via `draw_panels(..., height=3.2)`.
