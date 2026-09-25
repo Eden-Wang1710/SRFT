@@ -136,12 +136,14 @@ def draw(curves, path, ymax=None, legend=None):
     print(f"  -> {path}")
 
 
-def draw_panels(panels, path):
-    """One wide figure, one axes per family, with a single shared legend underneath.
+def draw_panels(panels, path, height=2.3, legend="inside"):
+    """One wide figure, one axes per family, with a single shared legend.
 
     Both panels use the same colour semantics (undefended base / Meta-SecAlign / ours), so the legend is generic and
-    the panel title says which base model it refers to."""
-    fig, axes = plt.subplots(1, len(panels), figsize=(7.2, 3.2), sharey=True)
+    the panel title says which base model it refers to. legend="inside" puts it in the empty band of the last panel
+    (between the SR curve and the base curve of the Qwen family), which is what makes the flat height possible;
+    legend="below" is the original layout (use height=3.2 with it)."""
+    fig, axes = plt.subplots(1, len(panels), figsize=(7.2, height), sharey=True)
     handles = {}
     for ax, (title, curves) in zip(axes, panels):
         for label, key, (a, b) in curves:
@@ -159,15 +161,21 @@ def draw_panels(panels, path):
         ax.set_xlim(0, 20.5)
         ax.set_ylim(0, 100)
         ax.set_xticks(range(0, 21, 4))
+        ax.set_yticks(range(0, 101, 25))
         ax.grid(axis="y", color="0.88", linewidth=0.7)
         ax.set_axisbelow(True)
     axes[0].set_ylabel("Attack success rate (%)")
     order = ["Undefended base", "Meta-SecAlign-8B", "SR-Agent (ours)"]
-    fig.legend([handles[k] for k in order if k in handles],
-               [k for k in order if k in handles],
-               loc="lower center", bbox_to_anchor=(0.5, -0.04), ncol=3,
-               frameon=False, handlelength=1.8, columnspacing=2.2, handletextpad=0.5)
-    fig.subplots_adjust(wspace=0.08, bottom=0.26)
+    hs = [handles[k] for k in order if k in handles]
+    ls = [k for k in order if k in handles]
+    if legend == "inside":
+        axes[-1].legend(hs, ls, loc="center", bbox_to_anchor=(0.47, 0.235), ncol=1, fontsize=9.5,
+                        frameon=False, handlelength=1.5, handletextpad=0.4, labelspacing=0.2, borderaxespad=0)
+        fig.subplots_adjust(wspace=0.08, bottom=0.22, top=0.88)
+    else:
+        fig.legend(hs, ls, loc="lower center", bbox_to_anchor=(0.5, -0.04), ncol=3,
+                   frameon=False, handlelength=1.8, columnspacing=2.2, handletextpad=0.5)
+        fig.subplots_adjust(wspace=0.08, bottom=0.26)
     fig.savefig(path)
     plt.close(fig)
     print(f"  -> {path}")
