@@ -48,7 +48,7 @@ def main():
     groups = BENCH + ["Average"]
     x = np.arange(len(groups))
     width = 0.26
-    fig, ax = plt.subplots(figsize=(7.0, 3.0))
+    fig, ax = plt.subplots(figsize=(7.0, 2.2))  # flat layout (2026-09-24); legend sits inside the axes above the bars
     for i, (key, label, vals) in enumerate(MODELS):
         vals = list(vals) + [float(np.mean(vals))]
         offs = (i - 1) * width
@@ -58,13 +58,13 @@ def main():
             ax.text(b.get_x() + b.get_width() / 2, v + 0.6, f"{v:.1f}", ha="center", va="bottom", fontsize=8.2,
                     color="#222222", zorder=4)
     ax.set_xticks(x, groups)
-    ax.set_ylim(30, 90)
-    ax.set_yticks([30, 50, 70, 90])
+    ax.set_ylim(30, 97)
+    ax.set_yticks([30, 50, 70])
     ax.set_ylabel("Score (%)")
     ax.yaxis.grid(True, color="#DDDDDD", linewidth=0.8, zorder=0)
     ax.set_axisbelow(True)
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.16), ncol=3, frameon=False, handlelength=1.6,
-              columnspacing=1.6)
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.0), ncol=3, frameon=False, handlelength=1.5,
+              columnspacing=1.2, handletextpad=0.5, fontsize=9.5, borderaxespad=0)
     fig.savefig(HERE / "fig_general.pdf")
     fig.savefig(HERE / "fig_general.png", dpi=200)
     for key, label, vals in MODELS:

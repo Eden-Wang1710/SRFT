@@ -258,3 +258,5 @@
 - 2026-09-24: main-text space — `paper/fig_rlhammer.pdf` redrawn flat (448×184 pt instead of 448×226 pt, −19 % height): shared legend
   kept in one row below both panels (an inside-panel-(b) variant was rejected: Meta-SecAlign is Llama-only), y-ticks every 25, fonts unchanged.
   Tex include and caption unchanged; old layout via `draw_panels(..., height=3.2)`.
+- 2026-09-24: `paper/fig_general.pdf` redrawn flat for main-text space (429×142 pt instead of 449×208 pt, −32 % height): legend moved
+  inside the axes above the bars, y-ticks 30/50/70, bar labels and fonts unchanged. Tex include and caption unchanged.
