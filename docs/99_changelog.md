@@ -271,3 +271,8 @@
 - 2026-09-24: merged figure restyled after the user's "太丑" review: two legends (main models below the figure, ablation arms inside
   panel (c) with short labels), markers every 2 epochs, bands alpha 0.08, (c) 15 % wider, "w/o failure exp." dark grey, the two
   "w/o refl." arms purple vs pink instead of solid vs dashed pink, one shared x-label; 7.2×2.75 in → 524×189 pt.
+- 2026-09-25: Paper check of the ICLR draft. "38 injection tasks" in §5.1 verified against `toucan_32B_v3_base.json` `meta.injections`:
+  each platform has a small set of uniformly reused Claude-generated attacks (email 9 ×24 uses, Minecraft 7 ×91, hotel 7 ×155,
+  downloader 7 ×100, windows 8 ×32 = **38**); the other 285 distinct `task` strings (323 total) are Toucan user requests from other
+  trajectories reused as injected instructions (1–9 uses each). 686/750 triggers; 3,455 distinct `combined` strings inserted.
+  Other findings passed to the user: 17.91 → 16.97 (only the baseline CSV exists, 161/949), 3,698/22,339, 55M LoRA params, C.3 self-ref.
