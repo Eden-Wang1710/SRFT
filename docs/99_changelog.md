@@ -268,3 +268,6 @@
   (row 1 = the three main-text models, row 2 = the three ablation arms); panel (c) omits the undefended base (already in (b), it hid the
   ablation arms). Same data/colours/markers as the two separate figures,
   which stay in the repo. Ablation run dirs read from the shared tree via `SRFT_ABL_OUT` (they are tracked on exp/ablation only).
+- 2026-09-24: merged figure restyled after the user's "太丑" review: two legends (main models below the figure, ablation arms inside
+  panel (c) with short labels), markers every 2 epochs, bands alpha 0.08, (c) 15 % wider, "w/o failure exp." dark grey, the two
+  "w/o refl." arms purple vs pink instead of solid vs dashed pink, one shared x-label; 7.2×2.75 in → 524×189 pt.
