@@ -57,7 +57,10 @@ def main():
             print(f"  {title:<18} {label:<26} final {mean[-1]:.1f}  peak {max(mean):.1f}")
         ax.set_title(title, pad=6)
     ax = axes[2]
+    # panel (c) without the undefended base (user, 2026-09-24): it is already in (b) and its curve hid the ablation arms
     for label, color, marker, ls, names in A.CURVES_V2:
+        if label == "Undefended base":
+            continue
         ep, mean, lo, hi = A.mean_band(names)
         line, = ax.plot(ep, mean, color=color, marker=marker, linestyle=ls, label=label,
                         markerfacecolor="white", markeredgewidth=1.1, clip_on=False, zorder=3)

@@ -265,5 +265,6 @@
   are tracked only on `exp/ablation`, so the figure is regenerated from the shared tree's outputs (script copy with ROOT overridden).
 - 2026-09-24: main-text space — RL-Hammer (a, b) and the train-time ablation (c) merged into ONE one-row figure,
   `paper/plot_rlhammer_ablation.py` → `paper/fig_rlhammer_ablation.pdf` (+ `.tex`), shared y axis (ASR %), one six-entry legend
-  (row 1 = the three main-text models, row 2 = the three ablation arms). Same data/colours/markers as the two separate figures,
+  (row 1 = the three main-text models, row 2 = the three ablation arms); panel (c) omits the undefended base (already in (b), it hid the
+  ablation arms). Same data/colours/markers as the two separate figures,
   which stay in the repo. Ablation run dirs read from the shared tree via `SRFT_ABL_OUT` (they are tracked on exp/ablation only).
