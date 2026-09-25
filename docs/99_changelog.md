@@ -260,3 +260,6 @@
   Tex include and caption unchanged; old layout via `draw_panels(..., height=3.2)`.
 - 2026-09-24: `paper/fig_general.pdf` redrawn flat for main-text space (429×142 pt instead of 449×208 pt, −32 % height): legend moved
   inside the axes above the bars, y-ticks 30/50/70, bar labels and fonts unchanged. Tex include and caption unchanged.
+- 2026-09-24: `paper/fig_ablation_v2.pdf` redrawn flat (440×174 pt instead of 450×200 pt, −13 % height): two-row legend kept (five
+  entries do not fit one row at 10 pt), y-label shortened to "ASR (%)", y-ticks every 20. The ablation run dirs (`iclr_rlh_ablq8_*`)
+  are tracked only on `exp/ablation`, so the figure is regenerated from the shared tree's outputs (script copy with ROOT overridden).

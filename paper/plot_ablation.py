@@ -74,22 +74,23 @@ V2 = "--v2" in sys.argv
 
 def main():
     style()
-    fig, ax = plt.subplots(figsize=(6.0, 3.4))
+    fig, ax = plt.subplots(figsize=(6.0, 2.7 if V2 else 3.4))  # v2 flat layout (2026-09-24) for main-text space
     for label, color, marker, ls, names in (CURVES_V2 if V2 else CURVES):
         ep, mean, lo, hi = mean_band(names)
         ax.plot(ep, mean, color=color, marker=marker, linestyle=ls, label=label,
                 markerfacecolor="white", markeredgewidth=1.2, clip_on=False, zorder=3)
         print(f"  {label:<26} epochs {ep[0]:.0f}-{ep[-1]:.0f}  final {mean[-1]:.1f}  peak {max(mean):.1f}")
     ax.set_xlabel("Attacker training epoch")
-    ax.set_ylabel("Attack success rate (%)")
+    ax.set_ylabel("ASR (%)" if V2 else "Attack success rate (%)")  # short label fits the flat v2 axes
     ax.set_xlim(0, 20.5)
     ax.set_ylim(0, 80)
     ax.set_xticks(range(0, 21, 4))
     ax.grid(axis="y", color="0.88", linewidth=0.7)
     ax.set_axisbelow(True)
-    ax.legend(frameon=False, handlelength=2.2, columnspacing=1.6, handletextpad=0.5,
-              loc="upper center", bbox_to_anchor=(0.5, -0.18), ncol=3 if V2 else 2)
-    fig.subplots_adjust(bottom=0.34)
+    ax.legend(frameon=False, handlelength=2.0, columnspacing=1.4, handletextpad=0.5, labelspacing=0.25,
+              loc="upper center", bbox_to_anchor=(0.5, -0.24 if V2 else -0.18), ncol=3 if V2 else 2)
+    fig.subplots_adjust(bottom=0.42 if V2 else 0.34, top=0.97)
+    ax.set_yticks(range(0, 81, 20))
     out = ROOT / "paper" / ("fig_ablation_v2.pdf" if V2 else "fig_ablation.pdf")
     fig.savefig(out)
     print(f"  -> {out}")
