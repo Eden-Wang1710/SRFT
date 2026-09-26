@@ -270,3 +270,5 @@ rl-injector + `jobs/{train_attacker,eval_attacker_ckpts}.sh` (cluster-neutral re
 (`anon/normalize_outputs.py`; SR-Llama run 1 ckpt 51–765 pulled from `origin/exp/rlh-sr-llama`) + `rlhammer_stats.py` (merged plot_rlhammer/tab_rlhammer/plot_ablation).
 Verified: Table 1/2 rows (37.11/29.08/1.26; –/46.68/1.05; 50.52/49.21/0.84) and Tables 7/8 reproduce exactly; identity grep zero hits; 192 MB, 4,141 files, one anonymous commit.
 Root README = `anon/README_anon.md` (ckpt links left as placeholders). Not yet pushed to GitHub / anonymous.4open.science.
+
+Anonymous mirror connected 2026-09-25: https://anonymous.4open.science/r/srft-iclr-anon-0200 (GitHub source `Eden-Wang1710/srft-iclr-anon`, single commit by `anonymous`; never commit there via the web UI).
