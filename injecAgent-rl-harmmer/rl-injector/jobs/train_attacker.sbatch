@@ -22,27 +22,36 @@ source "$CONDA_SH" && conda activate rlhammer
 cd "$SRFT_ROOT/injecAgent-rl-harmmer/rl-injector"
 export PYTHONUNBUFFERED=1 TOKENIZERS_PARALLELISM=false VLLM_WORKER_MULTIPROC_METHOD=spawn WANDB_MODE=disabled
 
-TARGET=${TARGET:?sr_llama|llama_base}; SYS_APPEND=${SYS_APPEND:?0|1}; RUN_NAME=${RUN_NAME:?}
+TARGET=${TARGET:?sr_llama|llama_base|sr_qwen}; SYS_APPEND=${SYS_APPEND:?0|1}; RUN_NAME=${RUN_NAME:?}
 case "$RUN_NAME" in *attack*) echo "RUN_NAME must not contain 'attack'" >&2; exit 2;; esac
-BASE=meta-llama/Llama-3.1-8B-Instruct
+# ABASE = attacker base (always LLaMA, paper A.5); TBASE = the TARGET's base, which differs for a Qwen target (2026-09-18)
+ABASE=meta-llama/Llama-3.1-8B-Instruct
+BASE=$ABASE
 NGPU=$(nvidia-smi -L | wc -l); NPROC=${NPROC:-$((NGPU - 1))}
 [ "$NPROC" -ge 1 ] && [ $((NPROC + 1)) -le "$NGPU" ] && [ $((24 % NPROC)) -eq 0 ] || { echo "bad NPROC=$NPROC for $NGPU GPUs" >&2; exit 2; }
 GA=$((24 / NPROC))
 APPEND=False; [ "$SYS_APPEND" = 1 ] && APPEND=True
+# TARGET_THINK=0|1 (default 1): the target's think mode, used in BOTH attacker training and target evaluation (2026-09-18).
+TTHINK=True; [ "${TARGET_THINK:-1}" = 0 ] && TTHINK=False
 PORT=$((20000 + ${SLURM_JOB_ID:-$$} % 20000)); MPORT=$((PORT + 1))   # per-job ports: two of our jobs may share a node
 URL=http://localhost:$PORT/v1
 
+TBASE=$ABASE; FMT=llama_local
 case "$TARGET" in
   sr_llama)   SR_LORA=${SR_LORA:?}; test -f "$SR_LORA/adapter_model.safetensors"
               MAIN=local/SR-Agent-Llama
-              SERVE=(--served-model-name "$BASE" --enable-lora --max-lora-rank 64 --max-loras 1 --lora-modules "$MAIN=$SR_LORA") ;;
+              SERVE=(--served-model-name "$TBASE" --enable-lora --max-lora-rank 64 --max-loras 1 --lora-modules "$MAIN=$SR_LORA") ;;
   llama_base) MAIN=local/Llama-3.1-8B-Instruct-target   # second name for the same weights: the reward tells the targets apart by name
-              SERVE=(--served-model-name "$BASE" "$MAIN") ;;
+              SERVE=(--served-model-name "$TBASE" "$MAIN") ;;
+  # 2026-09-18: Qwen3-8B target (NeurIPS prompt format + native think). The attacker stays LLaMA; only the served target changes.
+  sr_qwen)    SR_LORA=${SR_LORA:?}; test -f "$SR_LORA/adapter_model.safetensors"
+              TBASE=Qwen/Qwen3-8B; FMT=qwen; MAIN=local/SR-Agent-Qwen
+              SERVE=(--served-model-name "$TBASE" --enable-lora --max-lora-rank 64 --max-loras 1 --lora-modules "$MAIN=$SR_LORA") ;;
   *) echo "unknown TARGET=$TARGET" >&2; exit 2 ;;
 esac
 echo "cluster=$SRFT_CLUSTER node=$(hostname) job=${SLURM_JOB_ID:-} start=$(date)"
 nvidia-smi --query-gpu=index,name,memory.total --format=csv,noheader
-echo "TARGET=$TARGET MAIN=$MAIN SYS_APPEND=$APPEND SR_LORA=${SR_LORA:-} RUN_NAME=$RUN_NAME NGPU=$NGPU NPROC=$NPROC GA=$GA SEED=${SEED:-1024} PORT=$PORT EXTRA_ARGS=${EXTRA_ARGS:-}"
+echo "TARGET=$TARGET MAIN=$MAIN SYS_APPEND=$APPEND SR_LORA=${SR_LORA:-} TBASE=$TBASE FMT=$FMT THINK=$TTHINK RUN_NAME=$RUN_NAME NGPU=$NGPU NPROC=$NPROC GA=$GA SEED=${SEED:-1024} PORT=$PORT EXTRA_ARGS=${EXTRA_ARGS:-}"
 
 # GPU preflight (2026-09-12): jobs 387056/387058 both died on gh102 with "CUDA-capable device(s) is/are busy or unavailable" on
 # attacker rank 0 after vLLM had already loaded — check every GPU up front so a bad node fails in seconds with a clear message.
@@ -52,7 +61,7 @@ for g in $(seq 0 $((NGPU - 1))); do
 done
 
 VLOG="$SRFT_SLURM_LOGS/rlh_vllm_${RUN_NAME}_${SLURM_JOB_ID:-local}.log"
-CUDA_VISIBLE_DEVICES=$((NGPU - 1)) python -m vllm.entrypoints.openai.api_server --model "$BASE" "${SERVE[@]}" \
+CUDA_VISIBLE_DEVICES=$((NGPU - 1)) python -m vllm.entrypoints.openai.api_server --model "$TBASE" "${SERVE[@]}" \
   --port "$PORT" --max-model-len 8192 --gpu-memory-utilization 0.9 > "$VLOG" 2>&1 &
 VPID=$!
 trap 'kill $VPID 2>/dev/null || true; wait $VPID 2>/dev/null || true' EXIT
@@ -66,14 +75,14 @@ curl -sf "$URL/models" | python -c "import json,sys; print('served:', [m['id'] f
 mkdir -p checkpoints
 CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((NPROC - 1))) accelerate launch --num_processes "$NPROC" --main_process_port "$MPORT" \
   train.py \
-  --attacker_model_name_or_path "$BASE" \
-  --target_model_name_or_path "$MAIN;$BASE" \
+  --attacker_model_name_or_path "$ABASE" \
+  --target_model_name_or_path "$MAIN;$TBASE" \
   --target_model_url "$URL;$URL" \
   --safe_agent_target_model_name_or_path "$MAIN" \
-  --safe_agent_target_base_model_name_or_path "$BASE" \
+  --safe_agent_target_base_model_name_or_path "$TBASE" \
   --safe_agent_mode True \
-  --safe_agent_prompt_format llama_local \
-  --target_enable_thinking True \
+  --safe_agent_prompt_format "$FMT" \
+  --target_enable_thinking "$TTHINK" \
   --use_safe_agent_system_append "$APPEND" \
   --model_wise_reward_weights 3.0 1.0 \
   --reward_functions InjecAgentToolCallingReward \

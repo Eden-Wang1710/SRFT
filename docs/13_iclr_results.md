@@ -63,6 +63,16 @@ Meta-SecAlign is Llama-native, so no Qwen Meta-SecAlign row is reported.
 | Qwen3-8B (undefended, no append) | 60.82 | 50.47 | 16.97 | 133.50 |
 | SR-Agent-Qwen3-8B (v0, the NeurIPS model) | 51.55 | 46.68 | **1.05** | **145.63** |
 
+> **2026-09-18 — the submitted paper reverted the Qwen3-8B row to the NeurIPS numbers (user decision).** Table 2 of the
+> current draft reads Qwen3-8B 60.82 / 50.47 / 17.91 and SR-Agent-Qwen3-8B **51.55 / 46.68 / 1.05**, i.e. §2a below, not
+> the v3-para row in §2b. **The model behind that row is v0, trained on `LLaMA-Factory/data/toucan_32B_v2.json`** —
+> not `toucan_32B_v3_base` and not `toucan_32B_v3_para`; the Qwen3-8B v3_base run (`v0'`) was cancelled on 2026-09-09 and
+> never completed. Confirmed by the per-suite ASR: v0 is banking 4.86 / slack 1.90 / travel 0.00 / workspace 0.17 /
+> ALL 1.05, which is exactly the "Think" column of the paper's Table 3.
+> Consequence: the training-data lineages of the reported rows are **Llama-3.1-8B ← `toucan_32B_v3_base`(_llama_local),
+> Qwen3-4B ← `toucan_32B_v3_base`, Qwen3-8B ← `toucan_32B_v2`**. Any Qwen3-8B ablation must be built from
+> `toucan_32B_v2` to be comparable with the row it ablates.
+
 ### 2b. AgentDojo, think budget 1024 (the protocol the ICLR version reports)
 | model | Benign | UA | ASR | Trade-off |
 |---|---|---|---|---|

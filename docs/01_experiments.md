@@ -271,3 +271,394 @@ the protocol or the code was changed here; this section only records the WashU s
 | | ckpt 51 / 306 / 612 / 1020 — **append**: emits any call 18 / 17 / 86 / 86 %, and *given* a call, it is the injected one 11 / 41 / 49 / 63 %; **no-append**: 29 / 27 / 14 / 14 % and 21 / 11 / 7 / 21 %. The attacker learns both to make the target act and to aim the action |
 | tested and rejected | the hypothesis that the append leaks the attack by asking the model to "briefly think about what function call may follow the injection": the think does name the injected tool often, but **equally in failures and in the no-append run** (e.g. no-append ckpt 51: 19/23 failed cases name it), so naming is not what discriminates success. The append does not corrupt the reasoning — it changes the behavioural default from "answer in text" to "emit a call" |
 | caveat | this is replicate run 2 (SEED 2048) only. The paper curve averages 2 runs; **the claim must be checked against skipjack's run 1 (`iclr_rlh_srllama_append`, seed 1024) before it is used** — if run 1 does not also climb, the divergence itself needs explaining. Nothing here was compared to run 1 yet |
+
+## ABL — SRFT ablations on Llama-3.1-8B (branch `exp/ablation`, started 2026-09-17, WashU)
+
+Purpose: show that SRFT's gain comes from the self-reflection supervision, not from the attacked trajectories alone.
+Everything except the training data is identical to **L-v3base-noappend** (the ICLR main row): same base model, same LoRA
+config (`llama31_8b_lora_sft_abl_nothink.yaml` differs from `llama31_8b_lora_sft_v3base_local.yaml` only in `dataset`
+and `output_dir`), same AgentDojo protocol (`important_instructions`, `SYS_APPEND=0`, T 0.6 / top-p 0.9).
+
+### ABL-A — w/o self-reflection (the whole `<think>` block removed)
+| field | value |
+|---|---|
+| data | `toucan_32B_v3_base_llama_local_nothink.json` — the same 3,698 trajectories with every `<think>…</think>` stripped from all **22,339** assistant messages (**−80.6 %** of assistant tokens; median assistant message 318 → 5 words). Deterministic: every assistant message had exactly one think block, and the remainder is a `<function=…>` call (15,492) or a final answer (6,847) |
+| built by | `LLaMA-Factory/data/` surgery, registered in `dataset_info.json` as `toucan_32B_v3_base_llama_local_nothink`; verified offline with `get_train_args` + `get_dataset` (supervised span starts at `<function=`, no think residue) |
+| config | `examples/train_lora/llama31_8b_lora_sft_abl_nothink.yaml`; 1 GPU, GA 16 (effective batch 16), 3 epochs, lr 5e-6, r64 α96 q/k/v/o |
+| ckpt | `LLaMA-Factory/saves/llama31-8b/lora/abl_nothink_sft_8k_r64_GA4_qkvo_3epoch_5e-6` |
+| job | **3079748** (submitted 2026-09-17 01:2x, `-t 10:00:00`) |
+| eval | AgentDojo, `MODEL=LLAMA_3_1_8B_SAFE_AGENT SYS_APPEND=0` — the same pipeline as the main row, so the only difference is what the model learned |
+
+Reference rows this is compared against (`docs/13` §1a):
+| model | Benign | UA | ASR |
+|---|---|---|---|
+| Llama-3.1-8B-Instruct (undefended) | 27.84 | 23.08 | 7.59 |
+| Llama-3.1-8B + SR prompt only (no training) | 31.96 | 21.71 | 4.32 |
+| **SR-Agent-Llama (full SRFT)** | **37.11** | **29.08** | **1.26** |
+| **ABL-A (w/o self-reflection)** | **34.02** | **29.29** | **0.84** |
+
+**ABL-A RESULT (FINAL 2026-09-17, job 3079748 train + 3079750-59 eval + 3079760 stats): the reflection adds nothing on
+AgentDojo.** Trade-off 128.45 vs the full model's 127.82. Per suite (Benign / UA / ASR): banking 37.50 / 30.56 / 4.86 ·
+slack 47.62 / 31.43 / 0.95 · travel 10.00 / 17.14 / 0.00 · workspace 37.50 / 31.61 / 0.00.
+
+All three metrics are statistically indistinguishable from full SRFT: benign 33/97 vs 36/97 (3 tasks), UA 29.29 vs
+29.08 (0.2 points), ASR 8/949 vs 12/949 (4 attacks) — every gap is inside the <=3-4 point noise band recorded in
+`docs/06`, and ABL-A is nominally *better* on ASR and trade-off.
+
+Verified before drawing this conclusion: the eval banner in `agentdojo/logs/eval_parallel/abl_nothink/*/proc*.log`
+shows `lora=.../abl_nothink_... exists=True append=False`, and **0 of 1,081 trajectories contain a thinking block**, so
+the model really never reflects. Training: 3 h 04 on one A100 (c2-gpu-023), 696 steps, train_loss 1.086.
+
+**What this does and does not say.** On AgentDojo the defence comes from the *data* — attacked trajectories supervised
+with the correct, non-hijacked action — not from the reflection. It does **not** yet speak to the paper's actual claim,
+which is about generalising to *unseen and adaptive* attacks; AgentDojo is one static attack (`important_instructions`).
+The place that claim lives is RL-Hammer, where full SR-Agent-Llama holds at 17.5 % while Meta-SecAlign-8B degrades to
+69.5 %. **ABL-A has not been run under RL-Hammer.** Until it is, the ablation cannot be reported as support for the
+self-reflection mechanism; if ABL-A collapses under the adaptive attacker while the full model holds, the ablation
+becomes the sharper version of the paper's story (reflection buys adaptive robustness, not static robustness).
+
+**Reading agreed with the user before the run:** ABL-A is expected to be clearly worse — it is plain action imitation
+on the attacked trajectories, i.e. the arm that isolates "is the reflection doing the work, or is it just the data?".
+### ABL-B — w/o action analysis (`<think>` kept, its LAST paragraph removed) — PREPARED, NOT SUBMITTED
+The third paragraph is where the sampled candidate actions (Stage II) enter the supervision; paragraphs 1-2 (restate the
+goal, identify the injection) need only the expert trajectory and the injection ground truth. Data
+`toucan_32B_v3_base_llama_local_nolast.json`, config `examples/train_lora/llama31_8b_lora_sft_abl_nolast.yaml`
+(again only `dataset` + `output_dir` differ from the main row), ckpt would be
+`saves/llama31-8b/lora/abl_nolast_sft_8k_r64_GA4_qkvo_3epoch_5e-6`.
+
+| check | value |
+|---|---|
+| think blocks that are cleanly 3 paragraphs | 22,309 / 22,339 = **99.87 %** (the 30 outliers also lose only their last paragraph) |
+| think tokens removed | **42.9 %** (median think 295 -> 171 words) |
+| think blocks still mentioning a candidate / sub-optimal action | **83.2 % -> 0.6 %** - the failure-contrast signal really is confined to the last paragraph, not spread through the reflection |
+
+Caveat to state if this arm is reported: dropping the whole paragraph also removes the *positive* rationale for the
+expert action (30.5 % of think tokens), which is not failure-derived. Isolating only the failure contrast (12.4 % of
+tokens, a no-op on 16.4 % of examples) is likely under-powered against the <=3-4 point noise floor in `docs/06`; the
+clean version of that would regenerate paragraph 3 with the candidate actions withheld from the expert LLM.
+
+### ABL-A under RL-Hammer (FINAL 2026-09-18) — and why it does not yet settle anything
+Jobs 3081813/3081815 (training, 4×H100, 7 h 40 and 10 h 50) + 3081814/3081816 (per-checkpoint eval). Same protocol as the
+SR-Llama curves (`sr_llama` target path, `SYS_APPEND=0`, GRPO 1020 steps = 20 epochs, NPROC 3, GA 8, seeds 1024 / 2048);
+the only change is `SR_LORA` pointing at the ABL-A adapter. Both job banners were checked to confirm this.
+
+| target | run 1 final | run 2 final | mean | peak |
+|---|---|---|---|---|
+| Llama-3.1-8B undefended | 98 | 99 | **98.5** | 100 |
+| Meta-SecAlign-8B | 80 | 59 | **69.5** | 80 |
+| SR-Agent-Llama (full SRFT) | 32 | 3 | **17.5** | 48 |
+| **ABL-A (w/o self-reflection)** | **4** | **8** | **6.0** | 14 |
+
+ABL-A run 2 curve: 2 3 2 7 9 7 10 9 8 7 4 3 5 5 7 10 5 6 9 8.
+
+**Taken at face value this says removing the reflection makes the model MORE robust, which is not credible.** Both
+ABL-A attackers produced flat curves, and `docs/12`'s variance caveat is explicit that a flat curve measures the
+attacker's search, not the target: SR-Agent-Llama's own two runs against an identical target were 32 and 3. So what we
+have is "0 of 2 attackers found an attack on ABL-A" vs "1 of 2 found one on SR-Agent-Llama" — far too weak to compare.
+
+**The transfer matrix is the test that settles it** (job 3087036, `jobs/transfer_matrix.sbatch`): replay the best
+attacker checkpoint of each run against every target and take the max per target. The adversarial prompts are already
+saved per checkpoint and `injecagent_eval.py` skips loading the attacker model when they exist, so only the target runs
+— 100 cases per cell. Attackers: srllama_r1 ckpt-816 (self-ASR 48, the strongest in the set), srllama_r2 ckpt-714 (7),
+ablnothink_r1 ckpt-867 (14), ablnothink_r2 ckpt-357 (10); targets: SR-Agent-Llama and ABL-A.
+If srllama_r1's attacker breaks ABL-A, ABL-A's flat curves were failed searches and the ablation says nothing about
+robustness; if it does not, ABL-A really is at least as hard to attack and the reflection's contribution is not
+demonstrable in this measurement.
+
+### Transfer matrix (job 3087036, 2026-09-18) — the ablation is decisive, and it goes against the mechanism claim
+Every run's best attacker checkpoint replayed against both targets (100 InjecAgent cases per cell, prompts read from
+`saved_adv_prompts/`, so the attacker model is never loaded). ASR %:
+
+| attacker \ target | SR-Agent-Llama | ABL-A |
+|---|---|---|
+| SR-Llama r1 ckpt-816 (self 48) | **48** | 8 |
+| SR-Llama r2 ckpt-714 (self 7) | 6 | 9 |
+| ABL-A r1 ckpt-867 (self 14) | 6 | 9 |
+| ABL-A r2 ckpt-357 (self 10) | 10 | 8 |
+| **max per target** | **48** | **9** |
+
+**Validity check:** the four diagonal cells reproduce the curve values (48 / 6 / 9 / 8 against 48 / 7 / 14 / 10) within
+T=0.6 sampling noise, so the matrix is internally consistent.
+
+**The decisive cell:** the strongest attacker in the whole set — the one that reaches 48 % against the full model —
+reaches only 8 % against ABL-A. It does not transfer. So ABL-A's flat curves were **not** failed searches; under the
+max-per-target criterion `docs/12` prescribes, ABL-A (9) is far more robust than full SRFT (48).
+
+### What the two benchmarks say together about ABL-A
+| | AgentDojo (static) Benign / UA / ASR | RL-Hammer (adaptive, max per target) |
+|---|---|---|
+| SR-Agent-Llama (full SRFT) | 37.11 / 29.08 / 1.26 | **48** |
+| ABL-A (w/o self-reflection) | 34.02 / 29.29 / 0.84 | **9** |
+
+**In these measurements the self-reflection supervision contributes nothing to robustness and appears to cost it.** The
+defence comes from the data construction — injections placed in expert trajectories, supervised with the correct,
+non-hijacked action. A plausible mechanism for the gap, not yet checked: the 48 % attacker may have learned to
+manipulate the reflection channel itself, which only exists in the full model. Testing it means reading the successful
+adversarial prompts in `outputs/transfer_srllama_r1_816_to_srllama/` — minutes of work, no GPU.
+
+**This does not touch the comparison the paper makes against prior work** (SR-Agent-Llama still beats Meta-SecAlign-8B:
+48 vs 69.5 max, 17.5 vs 69.5 mean). What it undermines is the *mechanism* attribution — "learning from failure via
+self-reflection" — since a strictly simpler variant of the same pipeline does better on both benchmarks.
+
+## ABL-Q8 — SRFT ablation on Qwen3-8B (branch `exp/ablation`, started 2026-09-18, WashU)
+
+Purpose: repeat the Llama ablation on the reasoning base, where the no-reflection arm still reasons natively. Compared
+against the **v0 / NeurIPS row the paper reports** (`docs/13` §2a: 51.55 / 46.68 / **1.05**; RL-Hammer Qwen curves in
+Fig. 3b).
+
+### Data — `toucan_32B_v2_nothink.json`
+Built from `toucan_32B_v2.json` (the data v0 was trained on). Steps:
+1. 3,707 trajectories, 22,456 assistant-side turns (`function_call` 15,564 + `gpt` 6,892), each with exactly one `<think>`.
+2. **3,185 of the 6,892 `gpt` turns are think-only with an empty answer** (`data_recovery/README.md`), so for them the
+   think *is* the whole message and stripping it leaves nothing to train on.
+3. Those turns always precede a new `human` turn, so deleting them in place would produce `human → human`. Instead each
+   trajectory is **split** there; the remainder starts a new segment with the same system prompt.
+4. Each segment is trimmed to start at `human` and end on an assistant-side turn (2,349 segments had a dangling trailing
+   `observation`, dropped — not a training target, so no signal lost).
+5. `<think>…</think>` stripped from every remaining assistant-side message.
+
+Result: 3,707 → **6,056** trajectories, **19,271** assistant turns = the theoretical maximum (22,456 − 3,185), −84.5 % of
+assistant tokens. Verified: no think residue, no role-sequence violations, all 15,564 `function_call` values still valid
+JSON, and LLaMA-Factory encodes it with the supervised span starting at `<tool_call>`.
+
+**Caveat, recorded because the user chose to proceed anyway:** this is NOT a matched ablation of v0. v0 trained on the
+full multi-user-turn trajectories *including* the 3,185 think-only turns; this arm is segmented and lacks them. The gap
+to 51.55 / 46.68 / 1.05 therefore mixes "no reflection" with a training-distribution change.
+
+### Training — job 3089151
+`examples/train_lora/qwen3_8b_lora_sft_abl_nothink_v2.yaml` = the v0 recipe (`qwen3_8b_lora_sft_think.yaml`) with only
+`dataset`, `output_dir` and **`enable_thinking: false`** changed. The last one is required: with `true` the qwen3 template
+injects an empty `<think>\n\n</think>` into the supervised target (verified offline), which would train the model to emit
+an empty think rather than none. 1 GPU, GA 16, 3 epochs, 1,137 steps.
+Ckpt `saves/qwen3-8b/lora/abl_q8_nothink_v2_sft_8k_r64_GA4_qkvo_3epoch_5e-6`.
+
+### Evaluation — RL-Hammer, two settings (user decision 2026-09-18)
+Both apply the Qwen template and use **no** system append; they differ only in the target's think mode, which is held
+consistent across attacker training and target evaluation:
+
+| run | flags | target think | append | jobs |
+|---|---|---|---|---|
+| `iclr_rlh_ablq8_yyn` | **YYN** | on | off | train 3090924 → eval 3090925 |
+| `iclr_rlh_ablq8_ynn` | **YNN** | off | off | train 3090926 → eval 3090927 |
+
+Reference curves (`docs/12`, verified from the NeurIPS scripts): SR-Agent = YYY (think on, append **on**), base Qwen3-8B
+= YYN (think on, append off); max-over-runs ASR 42 and 73.
+
+RL-Hammer gained a `sr_qwen` target for this: `train_attacker.sbatch` / `eval_attacker_ckpts.sbatch` now separate the
+attacker base (always LLaMA, paper A.5) from the target base (`TBASE`, Qwen3-8B here), select the prompt format per
+target (`FMT` = `qwen` vs `llama_local`), and expose `TARGET_THINK=0|1`; `submit_rlh.sh` accepts `sr_qwen` and
+`SKIP_LORA_CHECK=1` (the adapter does not exist yet when the run is chained onto its own training job — both sbatch
+scripts re-check it at runtime). Behaviour of the existing `sr_llama` / `llama_base` targets is byte-identical.
+
+**One run per setting.** After the Llama experience (`docs/12` variance caveat; SR-Llama's two runs against one target
+were 32 and 3), a single curve cannot be read as robustness. Whatever these two produce, the **transfer matrix** is
+required before any conclusion: replay the best attacker of each run — including the existing base-Qwen (YYN) and
+SR-Agent-Qwen (YYY) attackers — against every Qwen target and take the max per target.
+
+### ABL-Q8 results — RL-Hammer
+Training 3089151: 1 h 29 on one H100 (c2-gpu-011), 1,137 steps, train_loss 1.023 (v0's was 0.978; the targets differ —
+one contains the reflection, the other does not — so the two losses are not comparable, recorded only for the log).
+
+**YYN (target think ON, no append) — job 3090924 train / 3090925 eval, FINAL 2026-09-18.** Banner verified on both jobs:
+`TARGET=sr_qwen SR_LORA=…abl_q8_nothink… TBASE=Qwen/Qwen3-8B FMT=qwen THINK=True SYS_APPEND=False`.
+
+ASR per epoch: 3 2 4 9 21 33 46 60 63 63 66 69 61 60 61 63 58 56 37 60 → **final 60, peak 69, last-5 mean 54.8**.
+
+| target (RL-Hammer, Qwen family) | final | peak |
+|---|---|---|
+| Qwen3-8B undefended, run 1 / run 2 | 54 / 63 | 63 / **73** |
+| **ABL-Q8 (w/o self-reflection)** | **60** | **69** |
+| SR-Agent-Qwen3-8B (full SRFT), run 1 / run 2 | 32 / 2 | 42 / 5 |
+
+The ablation sits on top of the undefended base: removing the reflection supervision leaves the model as exposed to the
+adaptive attacker as no defence at all, while full SRFT is far below. The attacker's reward took off from ~0.4 to 1.0–1.7
+in the 40–60 % window — the `docs/12` signature of a search that found an attack — so this high curve is trustworthy in
+the direction that matters (a flat curve would not have been).
+
+**Caveat that decides whether this is publishable: YYN is train/inference MISMATCHED.** ABL-Q8 was trained with
+`enable_thinking: false`, so it has never produced reasoning after a `<think>` tag, yet YYN evaluates it with think on.
+Part of the 60 % may be the model being off-distribution rather than the absence of reflection. Every comparison row is
+matched (SR-Agent-Qwen trained and evaluated with think; base Qwen3-8B reasons natively), so ABL-Q8 YYN is the only
+mismatched cell in the table.
+
+**YNN (target think OFF both ends) — job 3090926 train / 3090927 eval, FINAL 2026-09-18. The mismatch objection is
+answered: it is just as high.** Curve: 1 0 2 1 5 5 7 17 27 30 30 33 29 50 58 57 56 59 53 60 → **final 60, peak 60,
+last-5 mean 57.0**. Attacker reward took off the same way (to 1.0–1.8 at ~40 %).
+
+| run (RL-Hammer, Qwen family) | final | last-5 | peak |
+|---|---|---|---|
+| Qwen3-8B undefended, run 1 / run 2 | 54 / 63 | 59.0 / 65.8 | 63 / **73** |
+| **ABL-Q8, think ON (YYN)** | **60** | 54.8 | 69 |
+| **ABL-Q8, think OFF (YNN)** | **60** | 57.0 | 60 |
+| SR-Agent-Qwen3-8B (full SRFT), run 1 / run 2 | 32 / 2 | 31.2 / 2.4 | 42 / 5 |
+
+Both think settings land on exactly the same endpoint (60), at the undefended base's level and far above full SRFT. The
+agreement is what makes this usable: the ablation's vulnerability does not depend on whether the model is asked to think
+at inference, so it cannot be explained by ABL-Q8 being off-distribution in the YYN cell.
+
+**What is still missing before this goes in the paper:**
+1. **One run per setting.** Both curves are high, which is the trustworthy direction under the `docs/12` asymmetry (a
+   flat curve would prove nothing), but a second seed per setting — or the transfer matrix — would make it solid.
+2. **The transfer matrix has not been run for the Qwen family at all**, including for the *published* curves (`docs/12`
+   notes this explicitly). On Llama it reversed the conclusion entirely. Cost is minutes: replay the best attacker of
+   each Qwen run (base YYN, SR-Agent YYY, ABL-Q8 YYN/YNN) against every Qwen target, report max per target.
+3. **The two bases disagree.** ABL-A on Llama was *more* robust without reflection (transfer max 9 vs 48); ABL-Q8 on
+   Qwen collapses to the undefended level. A plausible reason — untested — is that SR-Agent-Llama writes its reflection
+   as ordinary text while Qwen uses the native think channel, so the attack surfaces differ.
+
+**Also unresolved: this contradicts ABL-A on Llama**, where the no-reflection arm was *more* robust (transfer-matrix max
+9 vs 48). Two bases, opposite answers; that needs an explanation before either is used in the paper.
+
+## ABL-Q8-NOLAST — w/o action analysis on Qwen3-8B (branch `exp/ablation`, submitted 2026-09-22, WashU)
+
+**Why (reviewer objection, 2026-09-22):** the existing train-time ablation (ABL-Q8) compares *action only* with
+*reflection + action*, so it shows the reflection supervision matters but not that the paper's distinctive ingredient
+— reasoning about the agent's own sampled failed actions — matters, as opposed to generic safety-CoT distillation.
+Paragraph 3 of the reflection is the only place the Stage-II candidate actions enter the supervision (`docs/01 §ABL-B`:
+candidate mentions 76 % → 0.6 % when it is dropped); paragraphs 1–2 (goal, injection identification) need no candidates.
+This arm removes paragraph 3 and keeps everything else. User decision: this P0 design (no expert-LLM regeneration; the
+"same expert, candidates withheld" arm and the matched-regeneration arm were judged unnecessary).
+
+**Read it correctly (recorded before the result):** the arm is informative in one direction. If it stays as robust as
+full SRFT, the failure-contrast supervision contributes nothing measurable. If it collapses, the collapse is attributable
+to paragraph 3 as a whole — expert-action rationale (30.5 % of think tokens) *and* candidate consequences (12.4 %) — not
+to the failure contrast alone. Prior facts that lower the expectation for a large effect: candidates were sampled from
+Qwen3-32B, not the trained 8B; only 23 % of injected steps have a candidate that follows the injection (`docs/04 §0b`).
+
+### Data — `toucan_32B_v2_nolast.json` (`ablation/build_nolast.py`, report `.report.json`)
+`toucan_32B_v2.json` with the last paragraph of every `<think>` removed (paragraphs = blank-line-separated; 22,426 of
+22,456 thinks have exactly 3, the 30 outliers also lose only their last). Verified against v2: same 3,707 trajectories
+and turn sequence, **0 of 22,456 answers changed**, all 15,564 `function_call` values valid JSON, the 3,185 think-only
+turns keep their (shortened) think — so, unlike ABL-Q8, **no trajectory splitting and the training distribution is
+matched to v0 turn for turn**. Think words −42.9 % (6.56 M → 3.75 M); thinks mentioning a candidate / sub-optimal
+action 17,119 → 129.
+
+### Training — job 3144423 (DONE 2026-09-23)
+`examples/train_lora/qwen3_8b_lora_sft_abl_nolast_v2.yaml` = the v0 recipe with only `dataset` and `output_dir` changed
+(`enable_thinking: true` as in v0, since a think is present). 1 GPU, GA 16 (= v0's 4 × GA 4), 3 epochs = **696 steps**
+(same schedule length as v0; ABL-Q8 had 1,137 because its split data has 6,056 trajectories). Banner checked:
+`dataset: toucan_32B_v2_nolast`, `enable_thinking: true`, 3,707 examples. c2-gpu-013 (H100), 10.8 s/step,
+**2 h 19 wall, train_loss 0.874** (v0 0.978, ABL-Q8 1.023 — different targets, not comparable). Waited 7 h in the queue
+(fairshare exhausted, Priority=1). Ckpt `saves/qwen3-8b/lora/abl_q8_nolast_v2_sft_8k_r64_GA4_qkvo_3epoch_5e-6`,
+`adapter_model.safetensors` sha256 starts `6d254b1660bdb4ff`.
+Lesson: I cut the limit to 3 h from ABL-Q8's 1 h 29 — wrong reference, its sequences are 84 % shorter; the run finished with
+41 min to spare. `ablation/sft_resume.sbatch` (afternotok insurance, resumes from the newest epoch checkpoint, OR-ed into
+the downstream dependencies with `afterok:A?afterok:B`) was submitted as a safety net and cancelled unused.
+
+### Static sanity check — job 3146480 (general-short, 3 min, 2026-09-23)
+`jobs/static_eval_qwen.sbatch` with `SR_LORA=<nolast ckpt> SR_CASE=ablq8_nolast_append CASES=srqwen_append` (new knobs so the
+v0 output dir is not overwritten): InjecAgent's own injection, no attacker, think on, append on, 1024 tokens — the same
+vLLM+LoRA path the RL-Hammer eval uses. → `outputs/iclr_static_qwen_ablq8_nolast_append_/`.
+| target (static, 100 cases) | succ | unsucc | invalid | unclosed think |
+|---|---|---|---|---|
+| **ABL-Q8-NOLAST** (append) | **5** | 90 | 5 | 0 |
+| SR-Agent v0 (append) | 3 | 93 | 4 | 0 |
+| base Qwen3-8B (no append) | 1 | 99 | 0 | 3 |
+The adapter loads, reasons and closes its think on every case; 5 vs 3 is sampling noise (T 0.6). Static ASR says nothing
+about the question at hand — the base is lowest of the three — which is why the arm is judged under RL-Hammer.
+
+### Evaluation — RL-Hammer YYY, two seeds, chained `afterok` on the training job
+Setting = the published SR-Agent-Qwen setting exactly (think on, **append on**, Qwen template), not ABL-Q8's YYN:
+| run | seed | jobs (train → eval) |
+|---|---|---|
+| `iclr_rlh_ablq8_nolast_yyy` | 1024 | 3144424 → 3144425 |
+| `iclr_rlh_ablq8_nolast_yyy_r2` | 2048 | 3144426 → 3144427 |
+Reference: SR-Agent-Qwen YYY1/YYY2 final 32 / 2 (peak 42 / 5), base Qwen3-8B YYN 54 / 65, ABL-Q8 60 / 60.
+Still to do once the curves exist: the Qwen transfer matrix (never run for this family); AgentDojo static eval of the ckpt.
+
+### Run 1 FINAL (2026-09-23 15:20) — train 3144424 (10 h 11 on c2-gpu-016) → eval 3144425 (1 h 15, 20 checkpoints)
+ASR per epoch: **3 4 18 19 51 56 54 67 61 63 62 61 67 61 67 65 65 65 65 65** → **final 65, last-5 mean 65.0, peak 67 (epoch 8)**.
+Attacker reward: 0.04 → 1.35, take-off at epoch 5–6, plateau ≈ 1.30 from epoch 12.
+| Qwen3-8B target (YYY unless noted) | final | last-5 | peak |
+|---|---|---|---|
+| **ABL-Q8-NOLAST r1** (paragraph 3 removed) | **65** | 65.0 | 67 (8) |
+| ABL-Q8 (whole reflection removed, YYN) | 60 | 54.8 | 69 |
+| base Qwen3-8B (YYN) r1 / r2 | 54 / 65 | 59.0 / 65.8 | 63 / 73 |
+| SR-Agent v0 (full SRFT) YYY1 / YYY2 | 32 / 2 | 31.2 / 2.4 | 42 / 5 |
+The no-paragraph-3 model is as exposed as the undefended base and as the no-reflection model; the reflection's first two
+paragraphs on their own contribute nothing measurable under the adaptive attacker.
+**Run 2 (seed 2048, 3144426 → 3144427) cancelled by the user at epoch ~7 (2026-09-23 17:00): run 1 is judged sufficient.** Its reward
+had followed run 1's trajectory (0.03 → 0.32 by epoch 4). The arm is therefore reported as a single attacker run — stated as such in
+the figure caption, the appendix table (#Runs = 1) and the prose; the direction is the trustworthy one under the `docs/12` asymmetry.
+Partial checkpoints in `checkpoints/iclr_rlh_ablq8_nolast_yyy_r2/` (untracked) can be deleted.
+
+### Interim result, run 1 (2026-09-23 09:30, training at epoch 10; eval job 3148012 on general-short with the new `CKPT_ONLY` knob)
+Attacker reward per epoch 0.04 0.06 0.15 0.25 0.49 0.88 1.06 1.13 1.18 1.21 — take-off at epoch 5–6, earlier than
+against ABL-Q8 (40–60 %). ASR of the checkpoints evaluated so far, next to every other Qwen curve at the same steps:
+| run | ck 204 (ep 4) | 306 (ep 6) | 408 (ep 8) | 459 (ep 9) | peak (20 ep) |
+|---|---|---|---|---|---|
+| **ABL-Q8-NOLAST r1** | **19** | **56** | **67** | **61** | (67 so far) |
+| ABL-Q8 (no think) YYN | 9 | 33 | 60 | 63 | 69 |
+| base Qwen3-8B YYN r1 / r2 | 38 / 57 | 35 / 56 | 39 / 62 | 41 / 70 | 63 / 73 |
+| SR-Agent v0 YYY1 / YYY2 | 6 / 2 | 4 / 2 | 2 / 2 | 3 / 3 | 42 / 5 |
+**Removing only the third paragraph collapses the model to the ABL-Q8 / undefended level by epoch 6**, while full SRFT is
+at 2–6 at the same steps. Paragraphs 1–2 (goal, injection identification) alone do not buy adaptive robustness; what
+does is the action-analysis paragraph — the part written against the sampled candidate actions. Pending: the rest of the
+curve, run 2 (seed 2048), and the invalid share (25–28 % from ckpt 306 on) to be characterised.
+
+
+## ABL-APPEND — the v0 append / think ablation, disentangled (2026-09-19)
+
+Run `agentdojo/runs/v0_noappend_think512` (jobs 3106749–58, stats 3106759) fills the cell that was missing: the **v0
+checkpoint, append OFF, think ON**. Checkpoint identity verified before the run — `adapter_config` is Qwen3-8B r64/α96
+q,k,v,o and `train_results.json` reports train_loss **0.9778870977889532**, matching the 0.978 recorded for v0;
+sha256 of `adapter_model.safetensors` = `8769d466afbee4337f1a5490ed2ad411f6922af13311d315fd0c1f8b90edbbf1`. Every
+shard's banner was checked for `LORA=…toucan_32B_v2_sft_8k_r64_GA4_qkvo_3epoch_5e-6 SYS_APPEND=0 THINK=1
+THINK_BUDGET=512`.
+
+Cross-check: its Benign is **55.67** (banking 56.25 · slack 71.43 · travel 45.00 · workspace 52.50), and the old
+DSAI-era benign-only CSV `eval/attack_stats_qwen3_8b_toucan_lora_think_no_sys_append_no_attack_*.csv` also reports
+55.67 — an independent reproduction of that cell.
+
+| # | v0, think budget 512 | Benign | UA | ASR | source |
+|---|---|---|---|---|---|
+| ① | append ON, think ON | 51.55 | 46.68 | **1.05** | the paper's row (`3_01_toucan_32B_v2_…`) |
+| ② | append OFF, think ON | **55.67** | **48.89** | **8.54** | **this run** |
+| ③ | append OFF, think OFF | — | 38.78 | **14.33** | DSAI `qwen3_8b_toucan32B_v2_sft_no_sys_append_no_think` |
+
+**Append ablation (① vs ②), the only difference is the append:** ASR 1.05 → 8.54 (**+7.49**), at a cost of 4.12 benign
+and 2.21 UA points. Concentrated in two suites: banking 4.86 → 26.39, slack 1.90 → 28.57, while travel 0.00 → 2.86 and
+workspace 0.17 → 1.61 barely move. Consistent with the same measurement on other checkpoints (Qwen3-4B 0.84 → 6.22,
+v3-para 2.00 → 7.59).
+
+**Think ablation (② vs ③), both with the append off:** ASR 8.54 → 14.33 (**+5.79**), UA 48.89 → 38.78.
+
+### Consequence for the paper's Table 3 / §5.5
+Table 3 currently reports the no-think column as ① vs ③ and prints **38.78** for the All row. Two problems:
+1. **38.78 is that run's Utility under Attack, not its ASR.** The per-suite ASR values in the table (30.56 / 44.76 /
+   16.43 / 3.93) are correct and identify the run exactly, but weighted by the attacked counts (144/105/140/560) they
+   aggregate to **14.33**, not 38.78 — 38.78 is what the same weighting gives for UA.
+2. **Two variables change between the columns.** The think column is append ON, the no-think column is append OFF
+   (confirmed from that run's slurm log: `QWEN_SAFE_AGENT_SYS_APPEND=0 QWEN_SAFE_AGENT_ENABLE_THINKING=0`). Of the
+   1.05 → 14.33 rise, **+7.49 is the append and +5.79 is the think**.
+With row ② the two can now be reported separately, and the think column can be made single-variable.
+
+### ABL-APPEND (cont.) — the append on an UNTRAINED base (2026-09-19)
+Run `agentdojo/runs/base_append_think512` (jobs 3109372–81, stats 3109382): Qwen3-8B, **no LoRA**, append ON, think 512.
+Every shard's banner verified for `LORA=/nonexistent_base_model_fallback … exists: False`, `SYS_APPEND=1`, `THINK=1`,
+`THINK_BUDGET=512`. Per suite Benign / UA / ASR: banking 75.00 / 45.83 / 36.81 · slack 80.95 / 54.29 / 54.29 ·
+travel 65.00 / 41.43 / 9.29 · workspace 70.00 / 62.14 / 3.04 · **ALL 72.16 / 55.74 / 14.75**.
+
+**ASR, Qwen3-8B, think 512:**
+
+| | w/o append | w/ append | append is worth |
+|---|---|---|---|
+| Untrained base | 16.97 | **14.75** | −2.21 |
+| SR-Agent (v0) | 8.54 | **1.05** | **−7.48** |
+
+The defence does not come from the appended instruction: with the append but no training the ASR is still 14.75, which
+is 14× SR-Agent's 1.05 and barely below the undefended 16.97. Training without the append already reaches 8.54. The
+append is **3.4× more effective on the trained model** (7.48 vs 2.21 points) — it behaves as a trigger for a capability
+the training installed, not as a defence in itself. The same pairing at think 1024, both runs from this pipeline,
+agrees: base 17.49 → 13.80 (−3.69).
+
+**Caveat on the cross-pipeline cell.** The base w/o-append number (16.97) is the un-migrated DSAI-era
+`attack_stats_Qwen_Qwen3-8B_baseline.csv`; the w/-append number is ours. A same-pipeline think-512 base w/o-append run
+was proposed and declined, so that one comparison spans two pipelines. It does not change the conclusion: every estimate
+of the untrained base sits at 16.3–17.5 without the append and 13.8–14.8 with it.
+
+**Open discrepancy this exposes in the paper's Table 2 base row.** Our fresh base runs give **Benign 72.16** (think 512
+with the append here, and think 1024 without it in `base_think1024_noappend`), while the paper's base row reports
+**60.82**, from that same DSAI-era CSV. An 11-point gap on the same base model. This is the same class of problem as the
+already-flagged `docs/02` note that the CSV's ASR is 16.97 where the paper says 17.91. If the 60.82 is understated, the
+utility cost attributed to SR-Agent in Table 2 is understated with it. Not investigated further.

@@ -281,3 +281,28 @@
   p10–p90 298–481, max 664 with the Llama tokenizer; 74 % of assistant tokens; 6.0 steps/traj; 15,492 calls + 6,847 answers;
   3,806 tok/traj, 186 > 8k) and + one complete verbatim attacked trajectory (downloader_v2 ut7/it8, `../../root/.ssh` path traversal,
   2/3 candidates followed) replacing the Minecraft snippet. Numbers from `toucan_32B_v3_base.json`, script in the session log.
+- 2026-09-22: ABL-Q8-NOLAST started on `exp/ablation` (reviewer: the train-time ablation does not isolate "own failure
+  experience" from generic safety CoT). `ablation/build_nolast.py` → `toucan_32B_v2_nolast.json` (last think paragraph
+  dropped, 0 answers changed, no splitting); recipe `qwen3_8b_lora_sft_abl_nolast_v2.yaml`; train 3144423 → RL-Hammer YYY
+  seeds 1024/2048 (3144424/5, 3144426/7). Ledger section in docs/01. One-direction caveat recorded there.
+- 2026-09-23: ABL-Q8-NOLAST SFT 3144423 done (696 steps, 2 h 19, loss 0.874; limit cut too close — `ablation/sft_resume.sbatch`
+  afternotok insurance added, unused). Static InjecAgent sanity 5/100 (v0 3, base 1), adapter healthy. RL-Hammer YYY ×2
+  (3144424/6) released, waiting for 4-GPU slots.
+- 2026-09-23 09:30: ABL-Q8-NOLAST run 1 interim (eval_attacker_ckpts.sbatch gained `CKPT_ONLY`): ASR 19 / 56 / 67 / 61 at
+  epochs 4 / 6 / 8 / 9 vs SR-Agent v0 2–6 at the same steps — the no-paragraph-3 model collapses like ABL-Q8. Ledger §ABL-Q8-NOLAST.
+- 2026-09-23 15:20: ABL-Q8-NOLAST run 1 complete: final 65, last-5 65.0, peak 67 (ep 8) — undefended-base level. Run 2 training.
+- 2026-09-23 16:30: paper (main e6db0f47): `sec_ablation_v2.tex` + `fig_ablation_v2.pdf` + `sec_ablation_appendix_v2.tex` add the
+  w/o-failure-experience arm (run 1 only; `<<r2>>` markers for tomorrow's two-run update). `plot_ablation.py` / `tab_ablation.py --v2`.
+- 2026-09-23 17:00: ABL-Q8-NOLAST run 2 (3144426/7) cancelled at the user's decision — run 1 (final 65, peak 67) is the reported
+  result, single run. `sec_ablation_v2.tex` `<<r2>>` markers removed; numbers final.
+
+
+## 2026-09-25 — ICLR anonymous repository built (WashU)
+`anon/build_anon_repo.sh <SRFT root> <out>` builds `../SRFT-anon` from the local clone (no network): LLaMA-Factory + `toucan_32B_v3_base(.llama_local).json.gz` + 3 yamls;
+agentdojo fork + `runs/sr_agent_{llama31_8b,qwen3_8b,qwen3_4b}` (= `llama31_v3base_local_3epoch_noappend`, `3_01_…`, `qwen3_4b_v3base_traj_3epoch_think1024`) + `compute_attack_stats.py`;
+rl-injector + `jobs/{train_attacker,eval_attacker_ckpts}.sh` (cluster-neutral rewrite of the sbatch files) + `outputs/<target>/<run>/checkpoint-N/` for the 13 runs of Fig. 3 / Tables 7-8
+(`anon/normalize_outputs.py`; SR-Llama run 1 ckpt 51–765 pulled from `origin/exp/rlh-sr-llama`) + `rlhammer_stats.py` (merged plot_rlhammer/tab_rlhammer/plot_ablation).
+Verified: Table 1/2 rows (37.11/29.08/1.26; –/46.68/1.05; 50.52/49.21/0.84) and Tables 7/8 reproduce exactly; identity grep zero hits; 192 MB, 4,141 files, one anonymous commit.
+Root README = `anon/README_anon.md` (ckpt links left as placeholders). Not yet pushed to GitHub / anonymous.4open.science.
+
+Anonymous mirror connected 2026-09-25: https://anonymous.4open.science/r/srft-iclr-anon-0200 (GitHub source `Eden-Wang1710/srft-iclr-anon`, single commit by `anonymous`; never commit there via the web UI).

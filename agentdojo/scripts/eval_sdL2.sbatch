@@ -6,6 +6,8 @@
 #SBATCH -J eval_sdL2
 # Normally submitted by scripts/submit_eval_sdL2.sh (which adds account/partition/log path from env/<cluster>.sh).
 # env vars expected via --export: SUITE (or SUITES for benign), ATTACK (important_instructions | none), INJ (list, optional), RUN_LOGDIR, LORA_PATH, NPROC
+# ENABLE_THINKING=0|1 (default 1): Qwen think mode at inference. 0 is required for a model trained without <think>, otherwise the
+#   eval measures a train/inference mismatch rather than the model (added 2026-09-18 for the Qwen ablation).
 set -euo pipefail
 # Locate the repo root (works inside a job: SLURM_SUBMIT_DIR is inside the repo) and load the cluster settings.
 SRFT_ROOT="${SRFT_ROOT:-$(d="${SLURM_SUBMIT_DIR:-$PWD}"; while [ ! -f "$d/env/select.sh" ] && [ "$d" != / ]; do d=$(dirname "$d"); done; echo "$d")}"
@@ -14,7 +16,7 @@ source "$CONDA_SH" && conda activate agentdojo
 cd "$SRFT_ROOT/agentdojo"
 export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}" TOKENIZERS_PARALLELISM=false PYTHONUNBUFFERED=1
 export CUDA_VISIBLE_DEVICES=0
-export QWEN_SAFE_AGENT_LORA_PATH="${LORA_PATH:?}" QWEN_SAFE_AGENT_SYS_APPEND="${SYS_APPEND:-1}" QWEN_SAFE_AGENT_ENABLE_THINKING=1 QWEN_SAFE_AGENT_THINK_BUDGET="${THINK_BUDGET:-512}"
+export QWEN_SAFE_AGENT_LORA_PATH="${LORA_PATH:?}" QWEN_SAFE_AGENT_SYS_APPEND="${SYS_APPEND:-1}" QWEN_SAFE_AGENT_ENABLE_THINKING="${ENABLE_THINKING:-1}" QWEN_SAFE_AGENT_THINK_BUDGET="${THINK_BUDGET:-512}"
 # MODEL (2026-09-11): ModelsEnum name; LLAMA_3_1_8B_SAFE_AGENT = SR-Agent-Llama pipeline (same LORA_PATH / SYS_APPEND knobs; think budget n/a)
 MODEL="${MODEL:-QWEN_3_8B_SAFE_AGENT}"
 export LLAMA_SR_AGENT_LORA_PATH="$LORA_PATH" LLAMA_SR_AGENT_SYS_APPEND="${SYS_APPEND:-1}"
