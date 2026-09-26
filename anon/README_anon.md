@@ -33,7 +33,7 @@ produce that reflection followed by the expert action. The resulting models are 
     ├── data/InjecAgent/               the 310 / 100 / 100 train / eval / test split used throughout
     ├── jobs/train_attacker.sh         train one attacker against one target (§5)
     ├── jobs/eval_attacker_ckpts.sh    evaluate every attacker checkpoint on the 100 test cases
-    ├── outputs/<target>/<run>/checkpoint-<step>/   per-checkpoint ASR (+ per-case outputs where available) behind Figure 3 / Tables 7-8
+    ├── outputs/<target>/<run>/checkpoint-<step>/   per-checkpoint ASR behind Figure 3 / Tables 7-8
     └── rlhammer_stats.py              regenerates Figure 3 and Tables 7-8 from outputs/
 ```
 
@@ -97,8 +97,8 @@ Expected overall rows (Benign / Utility under Attack / ASR, %):
 
 | Run | Benign | UA | ASR |
 |---|---|---|---|
-| `sr_agent_llama31_8b` | 37.11 | 29.08 | 1.26 |
-| `sr_agent_qwen3_8b` | — | 46.68 | 1.05 |
+| `sr_agent_llama31_8b` | 37.11 | 29.08 |
+| `sr_agent_qwen3_8b` | — | 46.68 |
 | `sr_agent_qwen3_4b` | 50.52 | 49.21 | 0.84 |
 
 Every trajectory file contains the full message list (system prompt, user task, tool calls, tool outputs with the
@@ -135,19 +135,19 @@ budget 512 with the forced-transition prompt of Appendix C.1) are the defaults o
 ### 5.1 Released results
 
 `injecAgent-rl-harmmer/rl-injector/outputs/<target>/<run>/checkpoint-<step>/` holds, for every attacker checkpoint
-(one per epoch, 51 steps = 1 epoch, 20 epochs), `attack_success_rate.json` (ASR on the 100 test cases) and, where the
-per-case outputs were kept, `test_cases.json` (adversarial prompt, target output, judge verdict for each case).
+(one per epoch, 51 steps = 1 epoch, 20 epochs), `attack_success_rate.json` (ASR on the 100 test cases); `test_cases.json`,
+where present, lists the adversarial prompt, target output and judge verdict of each case.
 
-| `outputs/` directory | Target | Runs | Attacker seeds | Reflection instruction | Per-case outputs |
-|---|---|---|---|---|---|
-| `llama31_8b_base/run{1,2}` | Llama-3.1-8B-Instruct (undefended) | 2 | 1024 / 2048 | off | yes |
-| `meta_secalign_8b/run{1,2}` | Meta-SecAlign-8B (ReAct prompt, injection in the `input` role) | 2 | 1024 / 2048 | off | ASR only |
-| `sr_agent_llama31_8b/run{1,2}` | SR-Agent-Llama | 2 | 1024 / 2048 | off | yes |
-| `qwen3_8b_base/run{1,2}` | Qwen3-8B (undefended, think on) | 2 | 1024 / 2048 | off | ASR only (+ epoch 19 of run 1) |
-| `sr_agent_qwen3_8b/run{1,2}` | SR-Agent-Qwen3-8B (think on) | 2 | 1024 / 2048 | on | ASR only (+ epoch 20 of run 1) |
-| `ablation_qwen3_8b/wo_failure_experience` | Qwen3-8B fine-tuned without the failure-experience paragraph (think on) | 1 | 1024 | on | yes |
-| `ablation_qwen3_8b/wo_reflection_think_on` | Qwen3-8B fine-tuned without any reflection, think on | 1 | 1024 | off | yes |
-| `ablation_qwen3_8b/wo_reflection_think_off` | same checkpoint, think off | 1 | 1024 | off | yes |
+| `outputs/` directory | Target | Runs | Attacker seeds | Reflection instruction |
+|---|---|---|---|---|
+| `llama31_8b_base/run{1,2}` | Llama-3.1-8B-Instruct (undefended) | 2 | 1024 / 2048 | off |
+| `meta_secalign_8b/run{1,2}` | Meta-SecAlign-8B (ReAct prompt, injection in the `input` role) | 2 | 1024 / 2048 | off |
+| `sr_agent_llama31_8b/run{1,2}` | SR-Agent-Llama | 2 | 1024 / 2048 | off |
+| `qwen3_8b_base/run{1,2}` | Qwen3-8B (undefended, think on) | 2 | 1024 / 2048 | off |
+| `sr_agent_qwen3_8b/run{1,2}` | SR-Agent-Qwen3-8B (think on) | 2 | 1024 / 2048 | on |
+| `ablation_qwen3_8b/wo_failure_experience` | Qwen3-8B fine-tuned without the failure-experience paragraph (think on) | 1 | 1024 | on |
+| `ablation_qwen3_8b/wo_reflection_think_on` | Qwen3-8B fine-tuned without any reflection, think on | 1 | 1024 | off |
+| `ablation_qwen3_8b/wo_reflection_think_off` | same checkpoint, think off | 1 | 1024 | off |
 
 ```bash
 cd injecAgent-rl-harmmer/rl-injector
