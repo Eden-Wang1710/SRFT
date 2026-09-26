@@ -37,24 +37,27 @@ produce that reflection followed by the expert action. The resulting models are 
     └── rlhammer_stats.py              regenerates Figure 3 and Tables 7-8 from outputs/
 ```
 
-## 2. Model checkpoints
+## 2. Models and training
 
-All SR-Agent models are LoRA adapters (rank 64, alpha 96, q/k/v/o projections, 3 epochs, lr 5e-6, cosine schedule,
-10 % warm-up, effective batch 16, 8k context, bf16) on top of the public base model.
+The SR-Agent models are not released as weights; each one is reproduced by fine-tuning the public base model on the
+released data with the LLaMA-Factory config below. All three are LoRA adapters (rank 64, alpha 96, q/k/v/o projections,
+3 epochs, lr 5e-6, cosine schedule, 10 % warm-up, effective batch 16, 8k context, bf16).
 
-| Model | Base model | Training data | Training config | Adapter |
-|---|---|---|---|---|
-| SR-Agent-Llama | `meta-llama/Llama-3.1-8B-Instruct` | `toucan_32B_v3_base_llama_local` | `examples/train_lora/llama31_8b_lora_sft_v3base_local.yaml` | *[link to be added]* |
-| SR-Agent-Qwen3-8B | `Qwen/Qwen3-8B` | `toucan_32B_v3_base` | `examples/train_lora/qwen3_8b_lora_sft_v3base_traj.yaml` | *[link to be added]* |
-| SR-Agent-Qwen3-4B | `Qwen/Qwen3-4B` (hybrid-thinking release) | `toucan_32B_v3_base` | `examples/train_lora/qwen3_4b_lora_sft_v3base_traj.yaml` | *[link to be added]* |
+| Model | Base model | Training data | Training config |
+|---|---|---|---|
+| SR-Agent-Llama | `meta-llama/Llama-3.1-8B-Instruct` | `toucan_32B_v3_base_llama_local` | `examples/train_lora/llama31_8b_lora_sft_v3base_local.yaml` |
+| SR-Agent-Qwen3-8B | `Qwen/Qwen3-8B` | `toucan_32B_v3_base` | `examples/train_lora/qwen3_8b_lora_sft_v3base_traj.yaml` |
+| SR-Agent-Qwen3-4B | `Qwen/Qwen3-4B` (hybrid-thinking release) | `toucan_32B_v3_base` | `examples/train_lora/qwen3_4b_lora_sft_v3base_traj.yaml` |
 
-To train an adapter yourself (one 80 GB GPU is enough; the paper runs used 4 GPUs with `per_device_train_batch_size 1`
-and `gradient_accumulation_steps 4`):
+Install `requirements/llamafactory.txt` and `pip install -e LLaMA-Factory`, then (one 80 GB GPU is enough; the paper
+runs used 4 GPUs with `per_device_train_batch_size 1` and `gradient_accumulation_steps 4`):
 
 ```bash
 cd LLaMA-Factory
 gunzip -k data/toucan_32B_v3_base.json.gz data/toucan_32B_v3_base_llama_local.json.gz
-llamafactory-cli train examples/train_lora/llama31_8b_lora_sft_v3base_local.yaml     # -> saves/llama31-8b/lora/...
+llamafactory-cli train examples/train_lora/llama31_8b_lora_sft_v3base_local.yaml     # -> saves/llama31-8b/lora/<run>  (SR-Agent-Llama)
+llamafactory-cli train examples/train_lora/qwen3_8b_lora_sft_v3base_traj.yaml        # -> saves/qwen3-8b/lora/<run>    (SR-Agent-Qwen3-8B)
+llamafactory-cli train examples/train_lora/qwen3_4b_lora_sft_v3base_traj.yaml        # -> saves/qwen3-4b/lora/<run>    (SR-Agent-Qwen3-4B)
 ```
 
 ## 3. Training data
