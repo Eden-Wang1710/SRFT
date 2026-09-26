@@ -262,3 +262,11 @@
 - 2026-09-23 17:00: ABL-Q8-NOLAST run 2 (3144426/7) cancelled at the user's decision — run 1 (final 65, peak 67) is the reported
   result, single run. `sec_ablation_v2.tex` `<<r2>>` markers removed; numbers final.
 
+
+## 2026-09-25 — ICLR anonymous repository built (WashU)
+`anon/build_anon_repo.sh <SRFT root> <out>` builds `../SRFT-anon` from the local clone (no network): LLaMA-Factory + `toucan_32B_v3_base(.llama_local).json.gz` + 3 yamls;
+agentdojo fork + `runs/sr_agent_{llama31_8b,qwen3_8b,qwen3_4b}` (= `llama31_v3base_local_3epoch_noappend`, `3_01_…`, `qwen3_4b_v3base_traj_3epoch_think1024`) + `compute_attack_stats.py`;
+rl-injector + `jobs/{train_attacker,eval_attacker_ckpts}.sh` (cluster-neutral rewrite of the sbatch files) + `outputs/<target>/<run>/checkpoint-N/` for the 13 runs of Fig. 3 / Tables 7-8
+(`anon/normalize_outputs.py`; SR-Llama run 1 ckpt 51–765 pulled from `origin/exp/rlh-sr-llama`) + `rlhammer_stats.py` (merged plot_rlhammer/tab_rlhammer/plot_ablation).
+Verified: Table 1/2 rows (37.11/29.08/1.26; –/46.68/1.05; 50.52/49.21/0.84) and Tables 7/8 reproduce exactly; identity grep zero hits; 192 MB, 4,141 files, one anonymous commit.
+Root README = `anon/README_anon.md` (ckpt links left as placeholders). Not yet pushed to GitHub / anonymous.4open.science.
