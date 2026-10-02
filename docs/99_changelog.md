@@ -308,3 +308,5 @@ Root README = `anon/README_anon.md` (ckpt links left as placeholders). Not yet p
 Anonymous mirror connected 2026-09-25: https://anonymous.4open.science/r/srft-iclr-anon-0200 (GitHub source `Eden-Wang1710/srft-iclr-anon`, single commit by `anonymous`; never commit there via the web UI).
 
 - 2026-09-25 22:5x `exp/ablation` merged into `main` (82c667a0, pushed); the shared WashU tree is back on `main`. `../SRFT-main-wt` is left as a detached worktree (its `main` checkout had to be released; `git worktree remove ../SRFT-main-wt` when convenient). Ten untracked `paper/*ablation*` copies that shadowed tracked files were moved to the session scratchpad; the three that differed (`sec_append_base_ablation.tex`, `plot_ablation.py`, `fig_ablation_v2.pdf`) were OLDER than main's, main's versions kept.
+
+- 2026-10-02 Public (non-anonymous) copy for arXiv: `../SRFT-public` → https://github.com/Eden-Wang1710/srft-repo (same tree as SRFT-anon, README first paragraph neutral, no ICLR/anonymous wording; single commit authored by the user, no co-author trailer).
