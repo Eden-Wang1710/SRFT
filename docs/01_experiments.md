@@ -36,6 +36,7 @@ Metrics = AgentDojo v1.2.1, attack `important_instructions`, `eval/compute_attac
 | RLH-Lbase | **RL-Hammer vs base Llama-3.1-8B-Instruct** (no LoRA, no append) — the reference curve for the Llama family, run 1 (SEED 1024, the NeurIPS default) | — (no think) | same InjecAgent set | — (base weights) | `injecAgent-rl-harmmer/rl-injector/outputs/iclr_rlh_llama_base_` | n/a | n/a | **24 % → 98 %** | FINAL 2026-09-13 (train 3028016 9 h 21, eval 3028017 55 min, 20 ckpts × 100 cases). ASR 24 35 52 72 65 77 85 87 92 86 95 95 96 98 100 99 99 100 94 98 — mean 82.5, max 100, first-5 49.6, last-5 **98.0**. The undefended baseline is fully compromised, the NeurIPS Fig. 2 shape |
 | RLH-Lbase-r2 | same base-Llama target, **run 2 (SEED 2048)** — the paper curve for this target is the average of run 1 and run 2, as for the SR-Llama rows | — (no think) | same InjecAgent set | — (base weights) | `injecAgent-rl-harmmer/rl-injector/outputs/iclr_rlh_llama_base_r2_` | n/a | n/a | **24 % → 67 %, then attacker collapse** | FINAL-but-UNUSABLE past ckpt 714 (train 3028040 9 h 12, eval 3028041 1 h 02). ASR 24 21 36 36 47 46 44 54 49 47 52 62 67 56 **2 2 1 0 3 2** — the attacker's GRPO policy blew up at **step 733**: entropy 1.8 → 9.9 over ~5 steps, reward → 0.00, `grad_norm` → **0.00** and it never recovers (β = 0, so no KL term pulls it back; once every completion in a group scores 0 the advantage is 0 and the gradient vanishes — the collapse is permanent). Checkpoints are per epoch (51 steps), so **ckpt ≤ 714 is clean and ckpt ≥ 765 is a garbage attacker**. Do NOT average this run as-is; its usable peak is 67 % at ckpt 663 |
 | RLH-Lbase-r3 | base-Llama target, **replacement for the collapsed r2** (SEED 4096) so the averaged curve has two healthy runs | — (no think) | same InjecAgent set | — (base weights) | `injecAgent-rl-harmmer/rl-injector/outputs/iclr_rlh_llama_base_r3_` | n/a | n/a | **28 % → 99 %** | FINAL 2026-09-13 (train 3029364 10 h 04, eval 3029365 1 h 58; the first attempt 3029362 was killed on the bad node c2-gpu-010). ASR 28 38 62 69 83 87 87 86 87 90 92 93 95 95 96 99 94 98 99 99 — mean 85.9, last-5 **97.8**. Healthy throughout: entropy max 1.59, the 18 zero-gradient steps all at reward 2.00 (group-wide success saturation, not collapse) |
+| aba-cleanSFT | **rebuttal control (ML5G Q1): plain agentic SFT on the CLEAN expert trajectories** — the SR-Agent-Llama training set with the injection removed from the observations and no reflection; same recipe as ABL-A | — (no think) | `LLaMA-Factory/data/toucan_32B_v3_base_llama_local_clean_nothink.json` | `saves/llama31-8b/lora/aba_cleansft_sft_8k_r64_GA4_qkvo_3epoch_5e-6` | `agentdojo/runs/aba_cleanSFT` | – | – | – | SUBMITTED 2026-11-10 (train 4459638 → eval 4459639–48 → stats 4459649) |
 
 Per-suite numbers for each version are in its section. Trade-off = UA + (100 − ASR).
 
@@ -399,6 +400,29 @@ adversarial prompts in `outputs/transfer_srllama_r1_816_to_srllama/` — minutes
 **This does not touch the comparison the paper makes against prior work** (SR-Agent-Llama still beats Meta-SecAlign-8B:
 48 vs 69.5 max, 17.5 vs 69.5 mean). What it undermines is the *mechanism* attribution — "learning from failure via
 self-reflection" — since a strictly simpler variant of the same pipeline does better on both benchmarks.
+
+## aba-cleanSFT — agentic SFT on clean trajectories, Llama-3.1-8B (rebuttal, submitted 2026-11-10, WashU)
+
+**Why (ICLR review, Reviewer ML5G W2 / Q1):** SR-Agent-Llama's benign utility is above its base (27.84 → 37.11; banking 25 → 43.75).
+The reviewer asks how much of that is the training data acting as agentic SFT, and whether part of the "security improvement" then
+comes from a stronger task baseline rather than from the defence. ABL-A cannot answer this — its trajectories still contain the
+injection and are supervised with the non-hijacked action, i.e. it is security training (user, 2026-11-10). This arm removes the
+injection as well: the model sees only the original TOUCAN trajectory and the expert action.
+
+| field | value |
+|---|---|
+| data | `toucan_32B_v3_base_llama_local_clean_nothink.json` (registered under the same name), built by `ablation/build_clean.py` from the ABL-A data: the same **3,698** trajectories / 22,339 assistant turns / 15,492 observations, with `meta.injections[*].combined` removed from the observations together with its insertion separator. 3,488 trajectories had the injection removed (5,852 occurrences: 2,335 at the end, 1,799 at the start, 1,716 inside, 2 whole-observation); **210 never received their injection** (`has_injection_inserted_by_step` all False) and are copied unchanged — so nothing is dropped. 0 assistant turns and 0 human turns changed; observation characters 6.20 M → 4.50 M. sha256 `14191332…`, report next to the file |
+| verified offline | `multibase/check_llama_render.py --data <clean> --n 300 --all-lengths`: **309/309 identical token sequences** (LLaMA-Factory `llama3` == inference render), lengths mean 2,286 / max 6,511, 0 over the 8,192 cutoff |
+| config | `examples/train_lora/llama31_8b_lora_sft_aba_cleansft.yaml` = the ABL-A yaml with only `dataset` and `output_dir` changed (diff-verified); 1 GPU, GA 16, 3 epochs, lr 5e-6, r64 α96 q/k/v/o |
+| ckpt | `LLaMA-Factory/saves/llama31-8b/lora/aba_cleansft_sft_8k_r64_GA4_qkvo_3epoch_5e-6` |
+| jobs | train **4459638** (`-t 05:00:00`; ABL-A took 3 h 04) → eval **4459639–4459648** (`afterok`, `MODEL=LLAMA_3_1_8B_SAFE_AGENT SYS_APPEND=0 TLIM=03:00:00`, run `aba_cleanSFT`) → stats **4459649** |
+| queue | fairshare priority 1; `squeue --start` estimate for the training job 2026-11-11 14:31. Rebuttal deadline Friday 2026-11-13 |
+| compare against | base 27.84 / 23.08 / 7.59 · ABL-A 34.02 / 29.29 / 0.84 · SR-Agent-Llama 37.11 / 29.08 / 1.26 (`docs/13` §1a) |
+| check before reading the numbers | eval banner must show `lora=…aba_cleansft… exists=True append=False` (a missing adapter silently falls back to base Llama) |
+
+**How to read it (written before the result):** utility up with ASR at or above the base's 7.59 ⇒ the utility gain is agentic SFT
+and the ASR reduction is not a by-product of task competence. Utility up and ASR clearly down ⇒ part of the security gain does
+come with task competence, and the rebuttal must say so.
 
 ## ABL-Q8 — SRFT ablation on Qwen3-8B (branch `exp/ablation`, started 2026-09-18, WashU)
 
