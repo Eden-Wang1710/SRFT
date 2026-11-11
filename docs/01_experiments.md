@@ -36,7 +36,7 @@ Metrics = AgentDojo v1.2.1, attack `important_instructions`, `eval/compute_attac
 | RLH-Lbase | **RL-Hammer vs base Llama-3.1-8B-Instruct** (no LoRA, no append) — the reference curve for the Llama family, run 1 (SEED 1024, the NeurIPS default) | — (no think) | same InjecAgent set | — (base weights) | `injecAgent-rl-harmmer/rl-injector/outputs/iclr_rlh_llama_base_` | n/a | n/a | **24 % → 98 %** | FINAL 2026-09-13 (train 3028016 9 h 21, eval 3028017 55 min, 20 ckpts × 100 cases). ASR 24 35 52 72 65 77 85 87 92 86 95 95 96 98 100 99 99 100 94 98 — mean 82.5, max 100, first-5 49.6, last-5 **98.0**. The undefended baseline is fully compromised, the NeurIPS Fig. 2 shape |
 | RLH-Lbase-r2 | same base-Llama target, **run 2 (SEED 2048)** — the paper curve for this target is the average of run 1 and run 2, as for the SR-Llama rows | — (no think) | same InjecAgent set | — (base weights) | `injecAgent-rl-harmmer/rl-injector/outputs/iclr_rlh_llama_base_r2_` | n/a | n/a | **24 % → 67 %, then attacker collapse** | FINAL-but-UNUSABLE past ckpt 714 (train 3028040 9 h 12, eval 3028041 1 h 02). ASR 24 21 36 36 47 46 44 54 49 47 52 62 67 56 **2 2 1 0 3 2** — the attacker's GRPO policy blew up at **step 733**: entropy 1.8 → 9.9 over ~5 steps, reward → 0.00, `grad_norm` → **0.00** and it never recovers (β = 0, so no KL term pulls it back; once every completion in a group scores 0 the advantage is 0 and the gradient vanishes — the collapse is permanent). Checkpoints are per epoch (51 steps), so **ckpt ≤ 714 is clean and ckpt ≥ 765 is a garbage attacker**. Do NOT average this run as-is; its usable peak is 67 % at ckpt 663 |
 | RLH-Lbase-r3 | base-Llama target, **replacement for the collapsed r2** (SEED 4096) so the averaged curve has two healthy runs | — (no think) | same InjecAgent set | — (base weights) | `injecAgent-rl-harmmer/rl-injector/outputs/iclr_rlh_llama_base_r3_` | n/a | n/a | **28 % → 99 %** | FINAL 2026-09-13 (train 3029364 10 h 04, eval 3029365 1 h 58; the first attempt 3029362 was killed on the bad node c2-gpu-010). ASR 28 38 62 69 83 87 87 86 87 90 92 93 95 95 96 99 94 98 99 99 — mean 85.9, last-5 **97.8**. Healthy throughout: entropy max 1.59, the 18 zero-gradient steps all at reward 2.00 (group-wide success saturation, not collapse) |
-| aba-cleanSFT | **rebuttal control (ML5G Q1): plain agentic SFT on the CLEAN expert trajectories** — the SR-Agent-Llama training set with the injection removed from the observations and no reflection; same recipe as ABL-A | — (no think) | `LLaMA-Factory/data/toucan_32B_v3_base_llama_local_clean_nothink.json` | `saves/llama31-8b/lora/aba_cleansft_sft_8k_r64_GA4_qkvo_3epoch_5e-6` | `agentdojo/runs/aba_cleanSFT` | – | – | – | RUNNING since 2026-11-10 22:13 in interactive job 4468163 (1×H100, `ablation/run_aba_cleansft_interactive.sh`); the sbatch chain 4459638–49 was cancelled unstarted |
+| aba-cleanSFT | **rebuttal control (ML5G Q1): plain agentic SFT on the CLEAN expert trajectories** — the SR-Agent-Llama training set with the injection removed from the observations and no reflection; same recipe as ABL-A | — (no think) | `LLaMA-Factory/data/toucan_32B_v3_base_llama_local_clean_nothink.json` | `saves/llama31-8b/lora/aba_cleansft_sft_8k_r64_GA4_qkvo_3epoch_5e-6` | `agentdojo/runs/aba_cleanSFT` | 28.87 | 25.92 | 5.69 | FINAL 2026-11-11 02:29 (interactive job 4468163, 1×H100: train 1 h 20, eval 2 h 56; 949 attacked / 97 benign). Trade-off 120.23. vs L-base: benign +1.03, UA +2.84, ASR −1.90; vs SR-Agent-Llama: benign −8.24, UA −3.16, ASR +4.43 |
 
 Per-suite numbers for each version are in its section. Trade-off = UA + (100 − ASR).
 
@@ -419,6 +419,38 @@ injection as well: the model sees only the original TOUCAN trajectory and the ex
 | queue → interactive (2026-11-10 22:08) | The sbatch chain sat pending for 8 h (all priority weights are 0 on this cluster, so the queue is FIFO + backfill; estimates moved between 2026-11-11 08:25 and 23:36) and was **cancelled unstarted** at the user's decision. Replaced by `srun -p general-interactive --gres=gpu:1 -c 8 --mem=64G -t 3-00:00:00` inside tmux session `aba-srun` → job **4468163**, allocated within seconds on c2-gpu-001: a whole **H100 80GB (81,559 MiB, MIG disabled)**, until 2026-11-13 22:08. `ablation/run_aba_cleansft_interactive.sh` chains the same train script, the same 10 eval shards (`eval_sdL2.sbatch`, 2 procs each, sequential) and the stats; progress in `slurm_logs/aba_cleanSFT_interactive.state`, full log `slurm_logs/aba_cleanSFT_interactive_4468163.out`. Training started 22:13 |
 | compare against | base 27.84 / 23.08 / 7.59 · ABL-A 34.02 / 29.29 / 0.84 · SR-Agent-Llama 37.11 / 29.08 / 1.26 (`docs/13` §1a) |
 | check before reading the numbers | eval banner must show `lora=…aba_cleansft… exists=True append=False` (a missing adapter silently falls back to base Llama) |
+
+### aba-cleanSFT RESULT (FINAL 2026-11-11 02:29)
+Training 22:13 → 23:33 (1 h 20 on one H100, 696 steps, 3,698 examples, 54,525,952 trainable params); eval 23:33 → 02:29, ten shards
+sequentially at 2 procs, all rc=0, no retry. Verified: all 16 eval processes print `lora=…aba_cleansft… exists=True append=False`,
+0 tracebacks, 1,081 result files. Adapter sha256 starts `7c2a987781050ec0`. Stats: `agentdojo/eval/attack_stats_aba_cleanSFT_meta-llama_Llama-3.1-8B-Instruct-safe-agent.csv`.
+
+| Llama-3.1-8B (no append) | Benign | UA | ASR | Trade-off |
+|---|---|---|---|---|
+| undefended base | 27.84 (27/97) | 23.08 (219/949) | 7.59 (72/949) | 115.49 |
+| **aba-cleanSFT** (clean trajectories, no reflection) | **28.87** (28/97) | **25.92** (246/949) | **5.69** (54/949) | 120.23 |
+| ABL-A (injected trajectories, no reflection) | 34.02 (33/97) | 29.29 (278/949) | 0.84 (8/949) | 128.45 |
+| SR-Agent-Llama (full SRFT) | 37.11 (36/97) | 29.08 (276/949) | 1.26 (12/949) | 127.82 |
+
+Per suite (Benign / UA / ASR), aba-cleanSFT: banking 37.50 / 29.86 / **25.69** · slack 33.33 / 19.05 / 6.67 · travel 20.00 / 12.14 / 1.43 ·
+workspace 27.50 / 29.64 / 1.43. (base: banking 25.00 / 29.17 / 27.08 · slack 52.38 / 25.71 / 23.81 · travel 10.00 / 12.86 / 4.29 ·
+workspace 25.00 / 23.57 / 0.36; SR: banking 43.75 / 36.11 / 5.56 · slack 33.33 / 28.57 / 0.00 · travel 25.00 / 7.14 / 0.00 · workspace 42.50 / 32.86 / 0.71.)
+
+Paired utility 2×2 (`eval/paired_failure_analysis.py`, both / A only / B only / neither):
+| A → B | attacked (949) | benign (97) |
+|---|---|---|
+| base → aba-cleanSFT | 114 / 105 / 132 / 598 (net +27; McNemar χ² 3.1, p ≈ 0.08) | 18 / 9 / 10 / 60 (net +1) |
+| aba-cleanSFT → SR-Agent-Llama | 177 / 69 / 99 / 604 (net +30; χ² 5.4, p ≈ 0.02) | 23 / 5 / 13 / 56 (net +8; exact sign test p ≈ 0.10) |
+| aba-cleanSFT → ABL-A | 189 / 57 / 89 / 614 (net +32) | 23 / 5 / 10 / 59 (net +5) |
+| base → SR-Agent-Llama (2026-11-10) | 119 / 100 / 157 / 573 (net +57; χ² 12.6, p < 0.001) | 18 / 9 / 18 / 52 (net +9; p ≈ 0.12) |
+
+**Reading.** (1) *The prediction "utility up" was wrong:* plain agentic SFT on the clean trajectories barely moves utility — benign
++1 task, UA +2.8 points (borderline). The utility gain of SR-Agent-Llama therefore is not explained by the TOUCAN trajectories acting
+as generic agentic SFT; it appears only in the two models trained on the *attacked* trajectories (ABL-A and SRFT). (2) *Security does
+not come with task competence:* ASR stays at 5.69 (54 attacks) against 1.26 for SRFT; banking is 25.69 against the base's 27.08 and
+SRFT's 5.56. Only slack moves (23.81 → 6.67), where benign utility also fell 52.38 → 33.33, i.e. the model simply acts less there.
+(3) The benign column (97 tasks, one sample each) cannot carry a significance claim in any of these comparisons (p ≈ 0.10–0.12);
+UA on 949 trajectories can. Quote UA for the utility claim and treat Banking 25 → 43.75 (4 → 7 of 16 tasks) as small-sample.
 
 **How to read it (written before the result):** utility up with ASR at or above the base's 7.59 ⇒ the utility gain is agentic SFT
 and the ASR reduction is not a by-product of task competence. Utility up and ASR clearly down ⇒ part of the security gain does
