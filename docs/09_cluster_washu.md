@@ -139,3 +139,15 @@ Rules that follow:
   the RL-Hammer runs (~240 GPU-hours in two days), which pins every new job at `Priority=1`.
 - `squeue`/`sprio` show only our own jobs here, so "free GPUs and no queue" is an illusion — idle nodes marked `PLANNED`
   are reserved for other users' pending jobs you cannot see.
+
+## Interactive GPU when the batch queue is slow (VERIFIED 2026-11-10)
+- All priority weights are 0 (`sprio -w`), every job has priority 1: the batch queue is FIFO by submit time plus backfill. A new 1-GPU job on
+  `general-gpu` was estimated 4–5 days out (`sbatch --test-only`), and neither a shorter time limit nor `srun` instead of `sbatch` changes that.
+  Do not cancel and resubmit a queued job: it goes to the back.
+- `general-interactive` (PriorityTier 9000, nodes c2-gpu-001/002, max 5 d) has QoS `general-interactive-qos`: **per user at most 1 GPU, 8 CPUs,
+  64 GB, 2 jobs** (`sacctmgr show qos general-interactive-qos format=Name,MaxTRESPU,MaxJobsPU`). 2–4 GPUs are rejected outright.
+  `srun -A "$SLURM_ACCOUNT" -p general-interactive --gres=gpu:1 -c 8 --mem=64G -t 3-00:00:00 --pty /bin/bash` inside tmux was allocated in
+  seconds and is a whole H100 80GB (81,559 MiB, MIG disabled) — not a shared/sliced GPU.
+- `general-short` (30 min max) has no per-user GPU cap (QoS `general-short-qos`: cpu=218, 16 jobs); usable for resumable eval shards.
+- Driving it from Claude Code on the login node: `tmux new-session -d -s <name>`, `tmux send-keys -t <name> '<cmd>' Enter`,
+  `tmux capture-pane -t <name> -p`. The job scripts run unchanged inside the allocation with `bash <script>` (they only need `SLURM_JOB_ID`).
