@@ -482,6 +482,13 @@ SR-Agent-Llama at 43 %, so SR-Agent-Llama is breakable by an attacker that never
 attackers**, including the two that reach 99–100 % on the base. The 2026-09-18 finding (injected trajectories without reflection are
 the most robust Llama model, max 9 vs 48) is confirmed on a wider attacker set: max 10 vs 49.
 
+### aba-cleanSFT under RL-Hammer — dedicated attacker (SUBMITTED 2026-11-11 16:05, user request: one attacker)
+`SR_LORA=<aba_cleansft adapter> SEED=1024 SRFT_SBATCH_FLAGS="--exclude=$(cat slurm_logs/.rlh_denylist)" bash injecAgent-rl-harmmer/rl-injector/jobs/submit_rlh.sh sr_llama 0 iclr_rlh_abacleansft`
+→ train **4490145** (4×H100, 14 h limit, `general-gpu`) → eval **4490146** (`afterok`, 20 checkpoints × 100 cases). Protocol = the
+SR-Agent-Llama no-append curves; only `SR_LORA` differs. Queue: `--test-only` estimated the start at **2026-11-24**, i.e. after the
+rebuttal deadline (2026-11-13); the batch queue is FIFO (`docs/09_cluster_washu.md`), so the job only holds its place. Output will be
+`outputs/iclr_rlh_abacleansft_/`. The transfer matrix above is the only adaptive evidence for this target until it runs.
+
 **How to read it (written before the result):** utility up with ASR at or above the base's 7.59 ⇒ the utility gain is agentic SFT
 and the ASR reduction is not a by-product of task competence. Utility up and ASR clearly down ⇒ part of the security gain does
 come with task competence, and the rebuttal must say so.
