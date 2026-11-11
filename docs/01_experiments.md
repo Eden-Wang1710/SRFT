@@ -452,6 +452,36 @@ SRFT's 5.56. Only slack moves (23.81 → 6.67), where benign utility also fell 5
 (3) The benign column (97 tasks, one sample each) cannot carry a significance claim in any of these comparisons (p ≈ 0.10–0.12);
 UA on 949 trajectories can. Quote UA for the utility claim and treat Banking 25 → 43.75 (4 → 7 of 16 tasks) as small-sample.
 
+### aba-cleanSFT under RL-Hammer — transfer attack (2026-11-11 10:07–10:41, interactive job 4468163)
+`injecAgent-rl-harmmer/rl-injector/jobs/transfer_cleansft.sbatch` (run with `bash` inside the allocation; 34 min for 20 new cells).
+Same mechanics as the 2026-09-18 matrix: saved adversarial prompts of each run's best attacker checkpoint replayed against the target,
+100 InjecAgent test cases per cell, `llama_local` format, no append. **No attacker was trained against aba-cleanSFT, so its column is a
+transfer result — a lower bound on its adaptive ASR.** The matrix now has 7 attackers × 4 targets (8 cells reused from 2026-09-18). ASR %:
+
+| attacker (trained against; self-ASR) | base Llama | **aba-cleanSFT** | SR-Agent-Llama | ABL-A |
+|---|---|---|---|---|
+| base Llama r1 ckpt-765 (100) | 100 | **73** | 43 | 10 |
+| base Llama r3 ckpt-816 (99) | 99 | **35** | 12 | 4 |
+| SR-Agent-Llama r1 ckpt-816 (48) | 86 | **23** | 48 | 8 |
+| SR-Agent-Llama + append r2 ckpt-918 (64) | 86 | **24** | 49 | 7 |
+| SR-Agent-Llama r2 ckpt-714 (7) | 38 | **29** | 6 | 9 |
+| ABL-A r1 ckpt-867 (14) | 81 | **50** | 6 | 9 |
+| ABL-A r2 ckpt-357 (10) | 65 | **46** | 10 | 8 |
+| **max per target** | 100 | **73** | 49 | 10 |
+| mean over the 7 attackers | 79.3 | 40.0 | 24.9 | 7.9 |
+
+Validity: the two base-Llama attackers reproduce their curve values on the base target (100 / 99 against 100 / 99).
+
+**Reading.** (1) aba-cleanSFT is broken at 73 % by a prompt set that was never optimised against it, against 49 % for SR-Agent-Llama
+*including* the two attackers trained on SR-Agent-Llama itself (43 % without them). On the four attackers trained against neither model
+it is 73 / 35 / 50 / 46 vs 43 / 12 / 6 / 10. Clean-trajectory SFT buys no adaptive robustness to speak of; the static result (ASR 5.69
+vs 1.26) and the adaptive one agree. (2) It is nevertheless below the undefended base on every row (mean 40 vs 79). Part of that is
+transfer loss — these prompts were fitted to other models — so it cannot be read as robustness without an attacker trained on it
+(4 GPUs, not available before the rebuttal deadline). (3) **New, and against us:** the base-Llama r1 attacker transfers to
+SR-Agent-Llama at 43 %, so SR-Agent-Llama is breakable by an attacker that never saw it; and **ABL-A stays ≤ 10 % against all seven
+attackers**, including the two that reach 99–100 % on the base. The 2026-09-18 finding (injected trajectories without reflection are
+the most robust Llama model, max 9 vs 48) is confirmed on a wider attacker set: max 10 vs 49.
+
 **How to read it (written before the result):** utility up with ASR at or above the base's 7.59 ⇒ the utility gain is agentic SFT
 and the ASR reduction is not a by-product of task competence. Utility up and ASR clearly down ⇒ part of the security gain does
 come with task competence, and the rebuttal must say so.
