@@ -163,3 +163,10 @@ and confirm `MODEL=QWEN_3_4B_SAFE_AGENT` appears in each `--export` and that the
 skipjack's `cli_filter` now prints `failed to load /etc/slurm/rates.lua … cost preview disabled` on stderr for every sbatch. The submitter used to
 capture `2>&1`, so the warning ended up in the dependency id list and the stats job was silently not submitted (base-Llama runs; stats resubmitted
 by hand). Fixed: `sub()` and the stats line now capture stdout only and send filtered stderr to the terminal.
+
+## Other AgentDojo attacks (2026-11-11, rebuttal)
+Registered in our fork (`src/agentdojo/attacks/`): `direct`, `ignore_previous`, `system_message`, `injecagent`, `important_instructions`
+(+ no/wrong user/model-name variants), `tool_knowledge`, and the DoS family. `eval_sdL2.sbatch` takes any of them as `ATTACK=<name>`; results land
+in `…/user_task_N/<attack>/injection_task_M.json`, so use a separate run dir per attack. Stats: `python eval/compute_attack_stats.py <run>/<model dir> --attack <name>`
+(default `important_instructions`, unchanged) → `eval/attack_stats_<run>__<attack>.csv`. Single-GPU driver for several models inside an interactive
+allocation: `ATTACK=<name> bash agentdojo/scripts/run_attack_interactive.sh "<run>|<lora or /nonexistent>|<nproc>" …` (attacked shards only).

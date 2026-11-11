@@ -27,11 +27,16 @@ except Exception:
     np = None
 
 
+# Attack whose result files count as "attacked" (directory name under each user task). Default = the paper's attack; set by
+# `--attack <name>` (added 2026-11-11 for the tool_knowledge runs) — the default behaviour is unchanged.
+ATTACK_NAME = 'important_instructions'
+
+
 def is_attacked(path, data):
-    if '/important_instructions/' in path.replace('\\', '/'):
+    if f'/{ATTACK_NAME}/' in path.replace('\\', '/'):
         return True
     # fallback: some files contain attack_type in JSON
-    if isinstance(data, dict) and data.get('attack_type') == 'important_instructions':
+    if isinstance(data, dict) and data.get('attack_type') == ATTACK_NAME:
         return True
     return False
 
@@ -228,7 +233,11 @@ def main():
                         help='Name of the run directory under runs/, e.g. Qwen_Qwen3-8B-safe-agent')
     parser.add_argument('--runs-base', default=None,
                         help='Optional base path that contains the run directories. If omitted, a few sensible locations relative to the script and cwd will be tried.')
+    parser.add_argument('--attack', default='important_instructions',
+                        help='Attack directory name counted as attacked samples (default: important_instructions)')
     args = parser.parse_args()
+    global ATTACK_NAME
+    ATTACK_NAME = args.attack
 
     run_name = args.run_name
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -256,7 +265,7 @@ def main():
         return 2
 
     results = analyze(runs_root)
-    safe_name = run_name.replace('/', '_')
+    safe_name = run_name.replace('/', '_') + ('' if ATTACK_NAME == 'important_instructions' else f'__{ATTACK_NAME}')
     out_csv = os.path.join(script_dir, f'attack_stats_{safe_name}.csv')
 
     write_csv(results, out_csv)
