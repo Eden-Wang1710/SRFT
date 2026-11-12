@@ -482,12 +482,38 @@ SR-Agent-Llama at 43 %, so SR-Agent-Llama is breakable by an attacker that never
 attackers**, including the two that reach 99–100 % on the base. The 2026-09-18 finding (injected trajectories without reflection are
 the most robust Llama model, max 9 vs 48) is confirmed on a wider attacker set: max 10 vs 49.
 
+### Second AgentDojo attack: `tool_knowledge` on three Llama models (FINAL 2026-11-12 12:47, interactive job 4468163)
+`ATTACK=tool_knowledge bash agentdojo/scripts/run_attack_interactive.sh …` — same pipeline and protocol as the main rows (no append, 949
+attacked trajectories each, single seed); benign is not re-run. Run dirs `agentdojo/runs/<run>_toolknowledge`, stats
+`agentdojo/eval/attack_stats_<run>_…__tool_knowledge.csv` (`compute_attack_stats.py --attack tool_knowledge`). The template adds the
+ground-truth tool names and arguments of the injection task to the important-message wrapper; its wording does not occur in the 686
+training triggers. Wall time on one H100: base 2 h 35 (3 procs), aba-cleanSFT 2 h 30 (3 procs), SR-Agent-Llama **15 h 30** (2 procs).
+Verified: every eval process prints the expected adapter (`exists=False` for base, `exists=True append=False` for the two LoRAs); one
+base workspace shard failed at 3 procs and was completed by the 1-proc retry (949/949 for all three).
+
+| Llama-3.1-8B (no append) | UA `important_instructions` | ASR `important_instructions` | UA `tool_knowledge` | ASR `tool_knowledge` |
+|---|---|---|---|---|
+| undefended base | 23.08 | 7.59 (72) | 24.66 | 7.17 (68) |
+| aba-cleanSFT | 25.92 | 5.69 (54) | 24.97 | **7.69 (73)** |
+| SR-Agent-Llama | 29.08 | 1.26 (12) | **29.50** | **0.42 (4)** |
+
+Per suite, `tool_knowledge` (UA / ASR): base banking 31.94 / 15.28 · slack 24.76 / 34.29 · travel 13.57 / 3.57 · workspace 25.54 / 0.89;
+aba-cleanSFT banking 27.08 / 23.61 · slack 22.86 / 28.57 · travel 12.14 / 5.00 · workspace 28.04 / 0.36;
+SR-Agent-Llama banking 36.81 / 1.39 · slack 25.71 / 0.95 · travel 10.00 / 0.00 · workspace 33.21 / 0.18.
+
+**Reading.** (1) The SR-Agent-Llama result carries over to a second, unseen template: ASR 0.42 with UA unchanged (29.50 vs 29.08).
+(2) aba-cleanSFT is exactly as vulnerable as the base under this template (73 vs 68 attacks); its lower slack ASR under
+`important_instructions` (6.67) does not hold here (28.57), so clean-trajectory SFT provides no static robustness that survives a
+change of template. (3) `tool_knowledge` is not a stronger attack than `important_instructions` on the undefended 8B model (68 vs 72),
+it only redistributes successes across suites (slack up, banking down).
+
 ### aba-cleanSFT under RL-Hammer — dedicated attacker (SUBMITTED 2026-11-11 16:05, user request: one attacker)
 `SR_LORA=<aba_cleansft adapter> SEED=1024 SRFT_SBATCH_FLAGS="--exclude=$(cat slurm_logs/.rlh_denylist)" bash injecAgent-rl-harmmer/rl-injector/jobs/submit_rlh.sh sr_llama 0 iclr_rlh_abacleansft`
 → train **4490145** (4×H100, 14 h limit, `general-gpu`) → eval **4490146** (`afterok`, 20 checkpoints × 100 cases). Protocol = the
 SR-Agent-Llama no-append curves; only `SR_LORA` differs. Queue: `--test-only` estimated the start at **2026-11-24**, i.e. after the
-rebuttal deadline (2026-11-13); the batch queue is FIFO (`docs/09_cluster_washu.md`), so the job only holds its place. Output will be
-`outputs/iclr_rlh_abacleansft_/`. The transfer matrix above is the only adaptive evidence for this target until it runs.
+rebuttal deadline (2026-11-13). **It started far earlier: 2026-11-12 08:02 on c2-gpu-015** (the estimate is a worst case). At 12:48
+it was at epoch ~13 of 20 with the attacker reward at 1.2–1.5 (taken off). Checkpoints 51–663 are being evaluated on the idle
+interactive H100 (`CKPT_ONLY`, same script, same output dir); the chained eval job skips whatever that wrote. Output `outputs/iclr_rlh_abacleansft_/`.
 
 **How to read it (written before the result):** utility up with ASR at or above the base's 7.59 ⇒ the utility gain is agentic SFT
 and the ASR reduction is not a by-product of task competence. Utility up and ASR clearly down ⇒ part of the security gain does
