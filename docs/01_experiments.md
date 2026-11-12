@@ -507,13 +507,32 @@ SR-Agent-Llama banking 36.81 / 1.39 · slack 25.71 / 0.95 · travel 10.00 / 0.00
 change of template. (3) `tool_knowledge` is not a stronger attack than `important_instructions` on the undefended 8B model (68 vs 72),
 it only redistributes successes across suites (slack up, banking down).
 
-### aba-cleanSFT under RL-Hammer — dedicated attacker (SUBMITTED 2026-11-11 16:05, user request: one attacker)
+### aba-cleanSFT under RL-Hammer — dedicated attacker (FINAL 2026-11-12 15:38; submitted 2026-11-11 16:05, user request: one attacker)
 `SR_LORA=<aba_cleansft adapter> SEED=1024 SRFT_SBATCH_FLAGS="--exclude=$(cat slurm_logs/.rlh_denylist)" bash injecAgent-rl-harmmer/rl-injector/jobs/submit_rlh.sh sr_llama 0 iclr_rlh_abacleansft`
 → train **4490145** (4×H100, 14 h limit, `general-gpu`) → eval **4490146** (`afterok`, 20 checkpoints × 100 cases). Protocol = the
 SR-Agent-Llama no-append curves; only `SR_LORA` differs. Queue: `--test-only` estimated the start at **2026-11-24**, i.e. after the
 rebuttal deadline (2026-11-13). **It started far earlier: 2026-11-12 08:02 on c2-gpu-015** (the estimate is a worst case). At 12:48
 it was at epoch ~13 of 20 with the attacker reward at 1.2–1.5 (taken off). Checkpoints 51–663 are being evaluated on the idle
 interactive H100 (`CKPT_ONLY`, same script, same output dir); the chained eval job skips whatever that wrote. Output `outputs/iclr_rlh_abacleansft_/`.
+
+**RESULT (FINAL).** Training 4490145: 08:02 → 15:16, 7 h 14 on 4×H100 (c2-gpu-015), 1,020 steps, COMPLETED. Eval: checkpoints 51–663 on
+the interactive H100 (12:49–13:29), 714–1020 by the chained job 4490146 (21 min; it skipped the 13 finished ones). Banner on both:
+`TARGET=sr_llama TGT=…aba_cleansft… FMT=llama_local SYS_APPEND=False`.
+
+ASR per epoch: **18 19 26 40 36 51 51 64 59 72 65 68 66 72 70 65 78 63 76 74** → **final 74, last-5 mean 71.2, peak 78 (epoch 17)**.
+
+| Llama target (RL-Hammer, no append) | #attackers | final | last-5 | peak |
+|---|---|---|---|---|
+| undefended base (r1 / r3) | 2 | 98 / 99 | 98.0 / 97.8 | 100 / 99 |
+| **aba-cleanSFT** | 1 | **74** | 71.2 | 78 |
+| Meta-SecAlign-8B | 2 | 80 / 59 | – | 80 / 68 |
+| SR-Agent-Llama (r1 / r2) | 2 | 32 / 3 | – | 48 / 7 |
+| ABL-A (r1 / r2) | 2 | 4 / 8 | – | 14 / 10 |
+
+The dedicated attacker confirms the transfer lower bound (73): clean-trajectory SFT is broken at ~70–78 %, in the range of
+Meta-SecAlign-8B and far above both models trained on the attacked trajectories. Together with the static rows (ASR 5.69 under
+`important_instructions`, 7.69 under `tool_knowledge`) this closes ML5G Q1: task-competence training gives no security, statically or
+adaptively. It is one attacker; a high curve is the trustworthy direction (`docs/12` variance caveat).
 
 **How to read it (written before the result):** utility up with ASR at or above the base's 7.59 ⇒ the utility gain is agentic SFT
 and the ASR reduction is not a by-product of task competence. Utility up and ASR clearly down ⇒ part of the security gain does
