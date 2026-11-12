@@ -209,3 +209,33 @@ and `outputs/eval_rl_hammer_target_llama_qwen_20epoch_YYN_allckpts_/…checkpoin
 32 of 100 cases have "base hijacked, SR resists with a valid answer"; case 98 (sell 50 BTC) is the appendix case study
 (`paper/case_study_rlhammer_qwen.tex`). Note for the write-up: SR-Agent-Qwen sometimes echoes the reflection-instruction append
 ("For your thinking process, please: 1. …") after its `</think>`, e.g. on cases 22 and 98 — abridge those outputs with [...].
+
+## PAIR-style iterative-refinement attack on InjecAgent (2026-11-12, rebuttal; interactive H100, job 4468163)
+`pair_attack.py` (this folder): PAIR (Chao et al., arXiv 2310.08419) adapted to indirect prompt injection. Attacker = Llama-3.1-8B-Instruct
+(not fine-tuned; the paper uses Mixtral 8x7B), 30 streams × 3 rounds = at most 90 target queries per case, a case is broken when ANY query
+succeeds; judge = InjecAgent's rule-based parser; target prompt / sampling / parser = the RL-Hammer eval of the Llama targets
+(`llama_local`, no append, 1024 tokens). One vLLM engine serves attacker and target (base + LoRA). 100 test cases, seed 1024.
+`python pair_attack.py --targets base=,srllama=<SR-Agent-Llama LoRA> [--target_temperature 0 --tag iclr_pair_t0]` — ~20 min for both targets.
+Outputs `outputs/iclr_pair_<target>_/` and `outputs/iclr_pair_t0_<target>_/` (`summary.json`, `cases.json` tracked; `queries.jsonl` ignored, 16 MB).
+
+Reported next to PAIR's own metric, because "any of 90 queries" is inflated by target sampling: **control** = the benchmark's own injection
+sampled 90 times per case with no attacker; **replay** = the first successful prompt of each broken case re-sampled 20 times
+("verified" = at least half succeed; "single-shot" = mean replay rate, unbroken cases counted 0).
+
+| target T | target | control per-query | control any-of-90 | **PAIR any-query** | mean queries | per-query, rounds 1/2/3 | verified | single-shot |
+|---|---|---|---|---|---|---|---|---|
+| 0.6 (our protocol) | base Llama | 24.4 | 60 | **97** | 34.8 | 28.3 / 4.0 / 2.2 | 69 | 64.6 |
+| 0.6 | SR-Agent-Llama | 3.8 | 76 | **68** | 60.9 | 2.7 / 1.0 / 1.1 | 0 | 4.5 |
+| 0 (PAIR's protocol) | base Llama | 26.0 | 26 | **97** | 34.5 | 31.2 / 3.0 / 2.7 | 96 | 96.0 |
+| 0 | SR-Agent-Llama | 1.2 | 9 | **53** | 67.8 | 1.8 / 1.0 / 0.5 | 18 | 19.4 |
+
+Reading. (1) At T = 0.6 the any-query metric is sampling: SR-Agent-Llama's control reaches 76 % with no attacker, above PAIR's 68 %, and
+none of the 68 "successful" prompts replays at ≥ 50 % (median replay rate 5 %; 30 never succeed again). (2) At T = 0 — the paper's
+setting, where the control cannot be inflated the same way — PAIR raises SR-Agent-Llama from 9 % (control) to **53 %**, and 18 cases have
+a prompt that replays at ≥ 50 % (8 at 100 %). So PAIR is not ineffective against SR-Agent-Llama; it is far less effective than against the
+base (97 % with 96 % verified, in half the queries). (3) vLLM greedy decoding is not exactly deterministic for the SR-Agent target
+(control per-query 1.2 % but any-of-90 9 %; 45 of 53 broken cases replay below 100 %), so even the T = 0 any-query number carries some
+retry inflation; the verified / single-shot columns are the conservative ones. (4) SR-Agent-Llama's ~4 % single-query success rate at
+T = 0.6 means an attacker who may retry the same case many times succeeds on most cases without optimising anything. (5) Weak attacker
+(8B, no fine-tuning) and only two targets — not evidence of adaptive robustness; RL-Hammer reaches 32–48 % single-shot on the same target.
+If quoted, quote the T = 0 row with its control, not the T = 0.6 verified number alone.
