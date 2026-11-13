@@ -239,3 +239,32 @@ retry inflation; the verified / single-shot columns are the conservative ones. (
 T = 0.6 means an attacker who may retry the same case many times succeeds on most cases without optimising anything. (5) Weak attacker
 (8B, no fine-tuning) and only two targets — not evidence of adaptive robustness; RL-Hammer reaches 32–48 % single-shot on the same target.
 If quoted, quote the T = 0 row with its control, not the T = 0.6 verified number alone.
+
+## Second evaluation of the three Qwen3-8B ablation attackers (2026-11-13, rebuttal; interactive H100, job 4468163)
+`jobs/reeval_ablq8.sh eval2` re-runs `eval_attacker_ckpts.sbatch` on the same 20 attacker checkpoints of each arm under a new run name
+(`<run>_eval2`), with the original target settings (banners checked): the attacker RE-GENERATES its adversarial prompts (120 generations,
+0 loaded from `saved_adv_prompts/`) and the target is re-sampled. 12:49 → 16:30, no errors. **Each arm still has ONE trained attacker;
+this measures evaluation noise for a fixed attacker and is not a second attacker run** — report as "#attackers 1, #evaluations 2".
+Outputs `outputs/<run>_eval2_/`.
+
+| arm | evaluation | Final | Last-5 | Peak (epoch) |
+|---|---|---|---|---|
+| w/o failure experience (think on, append on) | 1 (2026-09) | 65 | 65.0 | 67 (8) |
+| | 2 (2026-11-13) | 76 | 69.4 | 76 (20) |
+| | **mean of the two** | **70.5 | 67.2 | 70.5 (20)** |
+| w/o reflection, think on | 1 (2026-09) | 60 | 54.8 | 69 (12) |
+| | 2 (2026-11-13) | 68 | 54.0 | 68 (12) |
+| | **mean of the two** | **64 | 54.4 | 68.5 (12)** |
+| w/o reflection, think off | 1 (2026-09) | 60 | 57.0 | 60 (20) |
+| | 2 (2026-11-13) | 56 | 56.2 | 57 (18) |
+| | **mean of the two** | **58 | 56.6 | 58 (18)** |
+
+Per-epoch ASR:
+- w/o failure experience (think on, append on): eval 1 `3 4 18 19 51 56 54 67 61 63 62 61 67 61 67 65 65 65 65 65` · eval 2 `6 4 10 21 37 58 53 62 62 64 63 68 61 69 71 65 68 71 67 76` · mean abs. difference per checkpoint 4.2 points (max 14).
+- w/o reflection, think on: eval 1 `3 2 4 9 21 33 46 60 63 63 66 69 61 60 61 63 58 56 37 60` · eval 2 `1 6 8 12 24 32 49 53 67 62 62 68 60 66 61 60 55 56 31 68` · mean abs. difference per checkpoint 3.2 points (max 8).
+- w/o reflection, think off: eval 1 `1 0 2 1 5 5 7 17 27 30 30 33 29 50 58 57 56 59 53 60` · eval 2 `2 0 2 1 1 6 5 16 24 29 32 30 27 51 53 55 56 57 57 56` · mean abs. difference per checkpoint 1.9 points (max 5).
+
+Reading: the Last-5 means move by at most 4.4 points between evaluations (65.0 → 69.4, 54.8 → 54.0, 57.0 → 56.2) while single checkpoints
+move by up to ~15, so Last-5 is the number to quote, not Final. All three arms stay at the undefended base's level (59.5) and far above
+SR-Agent (17.0) in both evaluations. The think-on arm's dip at epoch 19 (37 / 31) reproduces, i.e. it is a property of that checkpoint.
+Unexplained: evaluation 1 of the w/o-failure-experience arm reads exactly 65 for its last five checkpoints; evaluation 2 does not (65–76).
