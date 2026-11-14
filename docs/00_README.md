@@ -22,6 +22,7 @@ Migrated from the old server (DSAI, `/scratch/cxiao13/zixuan/SRFT`) to skipjack 
 | [04_self_distill_plan.md](04_self_distill_plan.md) | Concrete self-distillation recipe: per-step prompts, hint ladder, filters, training config |
 | [05_training.md](05_training.md) | LLaMA-Factory env, paper recipe, verified launcher, data-format gotcha, run table |
 | [12_rl_hammer_injecagent.md](12_rl_hammer_injecagent.md) | RL-Hammer adaptive attack on InjecAgent (paper Sec. 5.3): migrated folder, how Fig. 2 was produced, ASR per ckpt, porting to SR-Agent-Llama |
+| [16_rebuttal_experiments.md](16_rebuttal_experiments.md) | **ICLR rebuttal experiments (2026-11-09 → 11-13)**: aba-cleanSFT (clean-trajectory SFT on Llama) on AgentDojo and under RL-Hammer (transfer matrix + dedicated attacker), `tool_knowledge` on three Llama models, PAIR-style attack on InjecAgent, second evaluation of the Qwen ablation attackers; what each answers, what was not run, and what the results do not allow us to claim |
 | [99_changelog.md](99_changelog.md) | Dated log |
 
 Machine layer: `SRFT/env/` (`local.sh` marker → `skipjack.sh`/`washu.sh`, `sb` submitter, `freeze/`). Code outside docs: `SRFT/data_recovery/` (README + script to fill the missing mid-turn replies from DSAI per-step records); `SRFT/multibase/` (other base models: Llama data converter + train/inference render check, 2026-09-11).
