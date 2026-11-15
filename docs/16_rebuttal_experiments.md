@@ -276,6 +276,23 @@ NeurIPS Qwen attackers are **not** here: no weights for YYY1 / YYY2 (never migra
   user tasks 3 / 0 / 15 / 2 / 7 (2–3 each). Benign travel goes the other way (5/20 vs 2/20). Under `tool_knowledge` the same gap is 10.00
   vs 13.57. Small-sample policy difference, not over-suppression (2 declines in 100 losses).
 - **Template / trigger overlap** — §3.
+- **Injection-corpus diversity (ML5G Q3, "only 38 malicious tasks"; computed 2026-11-15 from `toucan_32B_v3_base.json` `meta.injections`,
+  `agentdojo` v1.2.1 suites and `InjecAgent/raw/test_cases_dh_base.json`).** Three layers, no new training:
+  1. *Injected instructions.* 323 distinct injected instructions, not 38: the 38 Template-1 malicious tasks (24–155 uses each) plus
+     **285 off-task user requests** taken from other Toucan trajectories (≤ 9 uses each) — benign-looking, in-domain instructions the
+     agent must still refuse because they arrive in a tool observation. The model therefore learns "instruction in tool output ≠ user
+     goal", not a list of harmful strings.
+  2. *Surface forms.* Each instruction is prefixed with one of 686 distinct triggers (from the 750-template StruQ + TaskTracker pool) at a
+     random position (start / middle / end, p = 0.5 per observation), giving **3,455 distinct injected strings** over 3,698 trajectories
+     and 22,339 supervised steps (37.8 % of observations carry one).
+  3. *Train / test disjointness.* Training = 5 Toucan MCP platforms, 207 tool names. AgentDojo = 4 suites, 69 tools, 35 injection goals,
+     one fixed `<INFORMATION> … Emma Johnson` wrapper; InjecAgent = 38 toolkits, 312 tools, 30 attacker instructions; RL-Hammer rewrites
+     those 30 by RL. Tool-name overlap: **1 / 207** (`send_email`, a different API on each side). Not one of the 686 training triggers
+     contains "important message" or `<INFORMATION>`. **0 / 35** AgentDojo goals and **0 / 30** InjecAgent instructions share even a
+     6-word window with any of the 323 training instructions. Every test injection is unseen at the level of tool, goal text and wrapper.
+  Lists: 38 malicious / off-task samples / AgentDojo goals / InjecAgent instructions in the session scratchpad `q3_lists.json`
+  (regenerate with the snippet in `99_changelog.md` 2026-11-15). A count-vs-ASR scaling curve would need ≥ 3 re-generations + trainings
+  + RL-Hammer runs (≈ 40 GPU-h each); not run — the argument above is what the data support.
 - **Self-generated reflections (ML5G Q2)** — nothing new was run; the existing rows are v1 (53.61 / 40.15 / 1.48) and v2-traj
   (53.61 / 46.58 / 2.32) against v0 (51.55 / 46.68 / 1.05), with the caveats in `03_analysis_utility_drop.md` §J (Claude reflection used
   as a hint; failure-contrast content drops from 23 % to 9 % of thinks naming a wrong tool call; static only, no RL-Hammer).
