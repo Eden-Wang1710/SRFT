@@ -31,6 +31,7 @@ from agentdojo.agent_pipeline.llms.qwen_8b_think_llm_safe_agent import Qwen8BThi
 from agentdojo.agent_pipeline.llms.qwen_32b_think_llm_safe_agent import Qwen32BThinkLLM_SAFE_AGENT
 from agentdojo.agent_pipeline.llms.qwen_secalign_llm import QwenSecAlignLLM
 from agentdojo.agent_pipeline.llms.meta_secalign_llm import MetaSecAlignLLM
+from agentdojo.agent_pipeline.llms.struq_secalign_release_llm import ReleasedStruQSecAlignLLM
 from agentdojo.agent_pipeline.llms.prompting_llm import PromptingLLM
 from agentdojo.agent_pipeline.pi_detector import TransformersBasedPIDetector
 from agentdojo.agent_pipeline.tool_execution import (
@@ -93,6 +94,10 @@ def get_llm(provider: str, model: str, model_id: str | None, tool_delimiter: str
         llm = MetaSecAlignLLM(model=model, tool_delimiter=tool_delimiter)
     elif provider == "hf_llama_sr_agent":
         llm = LlamaSRAgentLLM(model=model)
+    elif provider == "hf_secalign_released":
+        llm = ReleasedStruQSecAlignLLM(model=model, fmt="Meta-Llama-3-8B-Instruct")
+    elif provider == "hf_struq_released":
+        llm = ReleasedStruQSecAlignLLM(model=model, fmt="SpclSpclSpcl")
     elif provider == "hf_qwen_32b_safe_agent":
         llm = Qwen32BThinkLLM_SAFE_AGENT(model=model)
     elif provider == "openai":

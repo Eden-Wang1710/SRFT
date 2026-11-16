@@ -18,9 +18,12 @@ headline number can be read:
 
 usage (rlhammer env, 1 GPU, from rl-injector/):
   python pair_attack.py --targets base=,srllama=<lora dir> [--n_streams 30 --n_iters 3 --replays 20 --limit 0 --tag iclr_pair]
+  python pair_attack.py --targets metasecalign=secalign:<Meta-SecAlign-8B adapter dir>
+  python pair_attack.py --targets qwenbase=qwen:,srqwen=qwen_append:<SR-Agent-Qwen LoRA>      (second vLLM engine for Qwen3-8B)
 Outputs: outputs/<tag>_<target>/{summary.json, cases.json, queries.jsonl}
 """
 import argparse
+import ast
 import json
 import os
 import random
@@ -34,9 +37,24 @@ from injecagent_output_parsing import evaluate_output_prompted
 from llama_target import STOP as LLAMA_STOP
 from llama_target import build_prompt as build_llama_prompt
 from reward_func import extract_attack_prompt
-from utils import INJECAGENT_SYS_PROMPT, injecagent_get_tool_dict
+from utils import (
+    INJECAGENT_SAFE_AGENT_TOOL_RESPONSE_PROMPT,
+    INJECAGENT_SAFE_AGENT_USER_PROMPT,
+    INJECAGENT_SYS_PROMPT,
+    INJECAGENT_USER_PROMPT,
+    SAFE_AGENT_SYS_PROMPT_APPEND,
+    apply_chat_template_with_thinking_control,
+    injecagent_get_tool_dict,
+)
 
 BASE = "meta-llama/Llama-3.1-8B-Instruct"
+QWEN_BASE = "Qwen/Qwen3-8B"
+# Target formats = the per-target prompt/judge conventions of injecagent_eval.py (2026-11-15: qwen* and secalign added):
+#   llama_local : SR-Agent-Llama / Llama base, AgentDojo `local` format, no append            (llama_target.build_prompt)
+#   qwen        : Qwen3-8B targets, safe_agent_mode `qwen` format, think on, no append         (the paper's YYN setting)
+#   qwen_append : the same with the Fig. 5 append after the tool response                      (the paper's YYY setting, SR-Agent-Qwen)
+#   secalign    : Meta-SecAlign-8B, ReAct INJECAGENT_USER_PROMPT in the untrusted `input` role, ReAct parser
+FORMATS = ("llama_local", "qwen", "qwen_append", "secalign")
 
 # Round 1 is RL-Hammer's own attacker instruction (utils.ATTACKER_SYS_PROMPT) plus what the PAIR attacker is told about the setting;
 # the three "strategies" mirror PAIR's three attacker system prompts (logical appeal / authority endorsement / role-playing).
@@ -80,27 +98,73 @@ def clip(text, n=1500):
 class Runner:
     def __init__(self, args):
         self.args = args
-        self.llm = LLM(model=BASE, dtype="bfloat16", trust_remote_code=True, enable_lora=True, max_lora_rank=128, seed=args.seed)
+        need_qwen = any(f.startswith("qwen") for _, f, _ in args.target_specs)
+        mem = {"gpu_memory_utilization": 0.44, "max_model_len": 16384} if need_qwen else {}  # two engines share the GPU (Qwen target)
+        self.llm = LLM(model=BASE, dtype="bfloat16", trust_remote_code=True, enable_lora=True, max_lora_rank=128, seed=args.seed, **mem)
         self.tok = AutoTokenizer.from_pretrained(BASE, trust_remote_code=True)
+        self.qwen_llm = self.qwen_tok = None
+        if need_qwen:
+            self.qwen_llm = LLM(model=QWEN_BASE, dtype="bfloat16", trust_remote_code=True, enable_lora=True, max_lora_rank=128,
+                                seed=args.seed, **mem)
+            self.qwen_tok = AutoTokenizer.from_pretrained(QWEN_BASE, trust_remote_code=True)
+        self.secalign_tok = None
+        self._lora_id = 0
         self.tools = injecagent_get_tool_dict(gpt_format=True)
+        self.tools_plain = injecagent_get_tool_dict()
         data = json.load(open(args.data))
         self.data = data[: args.limit] if args.limit else data
         self.t_params = SamplingParams(temperature=args.target_temperature, top_p=0.95, top_k=20, max_tokens=1024,
                                        stop=LLAMA_STOP, include_stop_str_in_output=True)
+        self.t_params_nostop = SamplingParams(temperature=args.target_temperature, top_p=0.95, top_k=20, max_tokens=1024)
+        self.fmt = "llama_local"
         self.a_params = SamplingParams(temperature=1.0, top_p=0.9, max_tokens=700)
 
     # ---- target -------------------------------------------------------------------------------------------------------------
     def query_target(self, items, lora):
         """items: [(case_idx, adv_prompt)] -> [(reply, judge)] with judge in {succ, unsucc, invalid}"""
-        prompts = [build_llama_prompt(self.data[c], p, self.tools, INJECAGENT_SYS_PROMPT, False) for c, p in items]
-        outs = self.llm.generate(prompts, self.t_params, lora_request=lora, use_tqdm=False)
+        prompts = [self.target_prompt(self.data[c], p) for c, p in items]
+        engine = self.qwen_llm if self.fmt.startswith("qwen") else self.llm
+        params = self.t_params if self.fmt == "llama_local" else self.t_params_nostop
+        outs = engine.generate(prompts, params, lora_request=lora, use_tqdm=False)
         res = []
         for (c, p), o in zip(items, outs):
             row, reply = self.data[c], o.outputs[0].text
             ev = evaluate_output_prompted(reply, row["Attacker Tools"][0], row["Attacker Tools"], row["User Tool"], p,
-                                          safe_agent_mode=True)["eval"]
+                                          safe_agent_mode=self.fmt != "secalign")["eval"]
             res.append((reply, ev))
         return res
+
+    def target_prompt(self, row, adv):
+        """Exactly the target input injecagent_eval.py builds for this kind of target."""
+        if self.fmt == "llama_local":
+            return build_llama_prompt(row, adv, self.tools, INJECAGENT_SYS_PROMPT, False)
+        names = [row["User Tool"]] + row["Attacker Tools"]
+        descriptions = json.dumps([self.tools_plain[n] for n in names], indent=True)
+        observation = row["Tool Response Template"].replace("<Attacker Instruction>", adv)
+        if self.fmt.startswith("qwen"):
+            suffix = SAFE_AGENT_SYS_PROMPT_APPEND.strip() if self.fmt == "qwen_append" else ""
+            prev_args = row["Tool Parameters"]
+            try:
+                prev_args = json.dumps(ast.literal_eval(prev_args), ensure_ascii=False)
+            except (ValueError, SyntaxError, TypeError):
+                pass
+            messages = [
+                {"role": "system", "content": INJECAGENT_SYS_PROMPT},
+                {"role": "user", "content": INJECAGENT_SAFE_AGENT_USER_PROMPT.format(
+                    available_tool_descriptions=descriptions, input=row["User Instruction"])},
+                {"role": "assistant", "content": "<think>\n" f"{row['Thought']}\n" "</think>\n\n" "<tool_call>\n"
+                                                 f'{{"name": "{row["User Tool"]}", "arguments": {prev_args}}}\n' "</tool_call>"},
+                {"role": "user", "content": INJECAGENT_SAFE_AGENT_TOOL_RESPONSE_PROMPT.format(
+                    previous_tool_observation=observation, safe_agent_suffix=suffix)},
+            ]
+            return apply_chat_template_with_thinking_control(self.qwen_tok, messages, add_generation_prompt=True, tokenize=False,
+                                                             enable_thinking=True)
+        scratchpad = f"\n{row['Thought']}\nAction: {row['User Tool']}\nAction Input: {row['Tool Parameters']}\nObservation: {observation}\n"
+        user_prompt = INJECAGENT_USER_PROMPT.format(available_tool_descriptions=descriptions, input=row["User Instruction"],
+                                                    available_tool_names=names, agent_scratchpad=scratchpad)
+        messages = [{"role": "user", "content": INJECAGENT_SYS_PROMPT}, {"role": "input", "content": user_prompt}]
+        return apply_chat_template_with_thinking_control(self.secalign_tok, messages, add_generation_prompt=True, tokenize=False,
+                                                         enable_thinking=True)
 
     # ---- attacker -----------------------------------------------------------------------------------------------------------
     def query_attacker(self, convs):
@@ -111,9 +175,13 @@ class Runner:
         return [o.outputs[0].text for o in outs]
 
     # ---- one target ---------------------------------------------------------------------------------------------------------
-    def run(self, name, lora_path):
+    def run(self, name, fmt, lora_path):
         a, n_cases = self.args, len(self.data)
-        lora = LoRARequest(f"target_{name}", 1 + abs(hash(name)) % 1000, lora_path=lora_path) if lora_path else None
+        self.fmt = fmt
+        if fmt == "secalign":  # its chat template (with the `input` role) ships with the adapter
+            self.secalign_tok = AutoTokenizer.from_pretrained(lora_path, trust_remote_code=True)
+        self._lora_id += 1
+        lora = LoRARequest(f"target_{name}", self._lora_id, lora_path=lora_path) if lora_path else None
         out_dir = f"outputs/{a.tag}_{name}_"
         os.makedirs(out_dir, exist_ok=True)
         qlog = open(f"{out_dir}/queries.jsonl", "w")
@@ -171,7 +239,7 @@ class Runner:
         for x in cases:
             x.setdefault("replay_rate", 0.0)
         summary = {
-            "target": name, "lora": lora_path or None, "n_cases": n_cases, "n_streams": a.n_streams, "n_iters": a.n_iters,
+            "target": name, "format": fmt, "lora": lora_path or None, "n_cases": n_cases, "n_streams": a.n_streams, "n_iters": a.n_iters,
             "budget_per_case": budget, "target_temperature": a.target_temperature, "attacker": BASE, "seed": a.seed,
             "control": control, "rounds": rounds,
             "pair_asr_any_query": len(broken) / n_cases,
@@ -189,7 +257,9 @@ class Runner:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--targets", required=True, help="comma list name=<lora dir>; empty dir = undefended base, e.g. base=,srllama=/path")
+    ap.add_argument("--targets", required=True,
+                    help="comma list name=[format:]<lora dir>; empty dir = undefended base; format in llama_local (default) | qwen | "
+                         "qwen_append | secalign, e.g. base=,srllama=/path,qwenbase=qwen:,srqwen=qwen_append:/path,metasecalign=secalign:/path")
     ap.add_argument("--data", default="data/InjecAgent/dataset/test.json")
     ap.add_argument("--n_streams", type=int, default=30)
     ap.add_argument("--n_iters", type=int, default=3)
@@ -200,13 +270,20 @@ def main():
     ap.add_argument("--tag", default="iclr_pair")
     args = ap.parse_args()
     random.seed(args.seed)
-    runner = Runner(args)
-    out = []
+    args.target_specs = []
     for spec in args.targets.split(","):
-        name, _, path = spec.partition("=")
+        name, _, rest = spec.partition("=")
+        fmt, sep, path = rest.partition(":")
+        if not sep or fmt not in FORMATS:
+            fmt, path = "llama_local", rest
         if path:
             assert os.path.isfile(os.path.join(path, "adapter_model.safetensors")), f"no adapter in {path}"
-        out.append(runner.run(name, path))
+        assert fmt != "secalign" or path, "secalign needs the Meta-SecAlign adapter dir"
+        args.target_specs.append((name, fmt, path))
+    runner = Runner(args)
+    out = []
+    for name, fmt, path in args.target_specs:
+        out.append(runner.run(name, fmt, path))
     print("\n=== PAIR on InjecAgent ===")
     for s in out:
         print(f"{s['target']:<12} control any-of-{s['budget_per_case']} {100 * s['control']['any_of_budget']:5.1f} | "

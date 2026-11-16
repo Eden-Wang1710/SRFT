@@ -43,6 +43,14 @@ class ModelsEnum(StrEnum):
     """SR-Agent on Llama 3.1 8B Instruct (AgentDojo local tool format; no LoRA path -> base model)"""
     META_SECALIGN_8B = "facebook/Meta-SecAlign-8B"
     """Meta SecAlign 8B"""
+    SECALIGN_LLAMA3_8B_RELEASED = "facebookresearch/SecAlign-Meta-Llama-3-8B-Instruct-released"
+    """SecAlign LoRA on Meta-Llama-3-8B-Instruct as released by its authors (struq_secalign_release_llm.py)"""
+    STRUQ_LLAMA_7B_RELEASED = "Sizhe-Chen/StruQ-llama-7b-released"
+    """StruQ llama-7b as released by its authors (struq_secalign_release_llm.py)"""
+    LLAMA3_8B_INSTRUCT_SECALIGN_FORMAT = "meta-llama/Meta-Llama-3-8B-Instruct-secalign-format"
+    """Undefended Meta-Llama-3-8B-Instruct in the prompt format of the released SecAlign checkpoint"""
+    LLAMA_7B_UNDEFENDED_STRUQ_FORMAT = "Sizhe-Chen/Undefended-llama-7b-released"
+    """Undefended llama-7b (SpclSpclSpcl format) as released by the StruQ authors"""
     QWEN_3_4B_Instruct = "Qwen/Qwen3-4B-Instruct-2507"
     """Qwen 3 4B Instruct"""
     QWEN_3_4B_SAFE_AGENT = "Qwen/Qwen3-4B-safe-agent"
@@ -100,6 +108,10 @@ MODEL_PROVIDERS = {
     ModelsEnum.LLAMA_3_1_8B_Instruct: "hf",
     ModelsEnum.LLAMA_3_1_8B_SAFE_AGENT: "hf_llama_sr_agent",
     ModelsEnum.META_SECALIGN_8B: "hf_meta_secalign",
+    ModelsEnum.SECALIGN_LLAMA3_8B_RELEASED: "hf_secalign_released",
+    ModelsEnum.STRUQ_LLAMA_7B_RELEASED: "hf_struq_released",
+    ModelsEnum.LLAMA3_8B_INSTRUCT_SECALIGN_FORMAT: "hf_secalign_released",
+    ModelsEnum.LLAMA_7B_UNDEFENDED_STRUQ_FORMAT: "hf_struq_released",
     ModelsEnum.QWEN_3_4B_Instruct: "hf_qwen",
     ModelsEnum.QWEN_3_4B_SAFE_AGENT: "hf_qwen_8b_safe_agent",
     ModelsEnum.QWEN_3_8B: "hf_qwen_8b_think",
@@ -141,6 +153,10 @@ MODEL_NAMES = {
     "meta-llama/Llama-3.1-8B-Instruct": "AI assistant",
     "meta-llama/Llama-3.1-8B-Instruct-safe-agent": "AI assistant",
     "facebook/Meta-SecAlign-8B": "AI assistant",
+    "facebookresearch/SecAlign-Meta-Llama-3-8B-Instruct-released": "AI assistant",
+    "Sizhe-Chen/StruQ-llama-7b-released": "AI assistant",
+    "meta-llama/Meta-Llama-3-8B-Instruct-secalign-format": "AI assistant",
+    "Sizhe-Chen/Undefended-llama-7b-released": "AI assistant",
     "Qwen/Qwen3-4B-Instruct-2507": "AI assistant",
     "Qwen/Qwen3-4B-safe-agent": "AI assistant",
     "Qwen/Qwen3-8B": "AI assistant",

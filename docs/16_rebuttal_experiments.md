@@ -355,3 +355,80 @@ result · `9cac244d` transfer matrix · `99fe586f` / `dcf59902` `tool_knowledge`
 `…/*_toolknowledge`) and every `rl-injector/outputs/iclr_*` dir. Git-ignored, WashU only: the clean training JSON (rebuild with
 `ablation/build_clean.py`, check the sha256), the aba-cleanSFT adapter, the attacker checkpoints under `rl-injector/checkpoints/`,
 `outputs/transfer_*` and `outputs/iclr_pair*/queries.jsonl` — upload to the HF repos (`10_sync_workflow.md`) if skipjack needs them.
+
+---
+
+## 10. Additions of 2026-11-15 (interactive H100, job 4553495, tmux `base-srun`)
+
+### 10a. PAIR on three more targets: Meta-SecAlign-8B, Qwen3-8B, SR-Agent-Qwen3-8B (user request)
+`pair_attack.py` gained per-target formats that reproduce the target input / judge of `injecagent_eval.py` for each kind of target:
+`llama_local` (as before), `qwen` (Qwen3-8B, think on, no append = the paper's YYN setting), `qwen_append` (think on, Fig. 5 append
+after the tool response = YYY, SR-Agent-Qwen), `secalign` (Meta-SecAlign-8B: ReAct prompt in the untrusted `input` role, ReAct parser;
+the released LoRA `facebook/Meta-SecAlign-8B` served on the Llama-3.1-8B-Instruct engine, chat template from the adapter repo).
+Qwen targets use a second vLLM engine (both at `gpu_memory_utilization` 0.44, `max_model_len` 16384). Attacker, budget (30 × 3),
+target sampling (T 0.6 / top-p 0.95 / top-k 20, 1024 tokens), control and replay are identical to §4. 18:03 → 19:30.
+`python pair_attack.py --targets metasecalign=secalign:<adapter>,qwenbase=qwen:,srqwen=qwen_append:<SR-Agent-Qwen LoRA>` →
+`outputs/iclr_pair_{metasecalign,qwenbase,srqwen}_/`.
+
+All five targets, T = 0.6, 100 InjecAgent test cases, ≤ 90 target queries per case (%):
+
+| target | control: per-query | control: any of 90 | **PAIR: any of 90** | mean queries | per-query, rounds 1 / 2 / 3 | verified (replay ≥ 50 %) | single-shot | broken cases that never replay |
+|---|---|---|---|---|---|---|---|---|
+| Llama-3.1-8B (undefended) | 24.42 | 60 | **97** | 34.8 | 28.33 / 4.00 / 2.22 | 69 | 64.6 | 5 / 97 |
+| SR-Agent-Llama | 3.83 | 76 | **68** | 60.9 | 2.73 / 1.02 / 1.06 | 0 | 4.5 | 30 / 68 |
+| Meta-SecAlign-8B | 0.34 | 16 | **21** | 83.4 | 0.30 / 0.29 / 0.31 | 0 | 0.2 | 17 / 21 |
+| Qwen3-8B (undefended) | 0.91 | 17 | **66** | 66.3 | 1.93 / 1.51 / 1.25 | 22 | 23.1 | 8 / 66 |
+| SR-Agent-Qwen3-8B | 2.02 | 64 | **66** | 63.0 | 1.67 / 1.11 / 0.92 | 0 | 1.4 | 49 / 66 |
+
+**Reading.** (1) On PAIR's own metric neither SR-Agent beats what repeated sampling of the benchmark injection already gives
+(Llama 68 vs control 76; Qwen 66 vs control 64), and on Qwen SR-Agent ties its undefended base (66 / 66). (2) The base models are
+broken *reproducibly* (verified 69 % and 22 %), the SR-Agents are not (0 % and 0 %; 30 of 68 and 49 of 66 "successful" prompts never
+succeed again in 20 replays) — the attacker's refinement finds real attacks only on the bases. (3) **Meta-SecAlign-8B is the most
+robust target under this attack**: 21 %, per-query success ≈ 0.3 % against ≈ 2–4 % for the SR-Agents. The SR-Agents' residual
+single-query success rate at T 0.6 is what a retry-based attack amplifies. This ordering is the opposite of RL-Hammer's
+(Meta-SecAlign-8B 69.5 vs SR-Agent-Llama 17.5 final, 80 vs 48 worst case). (4) SR-Agent-Qwen's control per-query rate (2.0 %) is
+above its base's (0.9 %), matching the 2026-09-18 static measurement (3 % vs 1 %): undefended Qwen3-8B hardly follows the plain
+InjecAgent injection. **Do not write or imply that SR-Agent beats Meta-SecAlign under PAIR.** If PAIR is reported, report all five
+rows; if only base-vs-SR-Agent is shown, the Meta-SecAlign row must not be contradicted elsewhere.
+
+### 10b. Released StruQ / SecAlign checkpoints on AgentDojo (ML5G W1 "baselines are thin"; user request)
+Literature first: no paper reports StruQ or the original SecAlign on AgentDojo at 7–8B with Benign / UA / ASR. Closest numbers:
+Meta-SecAlign v4 (arXiv 2507.02735) re-runs the original SecAlign recipe on Llama-3.3-70B: 6.2 / 7.9 / 0.0 against 59.8 / 43.4 / 14.7
+undefended; "The Autonomy Tax" (arXiv 2603.19423v1) has StruQ / SecAlign on Llama-3-8B with its own trigger protocol and metrics;
+DRIP (arXiv 2511.00447v2) has InjecAgent only. So the released checkpoints were run here.
+
+| | checkpoint (host `dl.fbaipublicfiles.com/SecAlign/`, the URL of the two repos' `setup.py`) |
+|---|---|
+| SecAlign | LoRA `meta-llama/Meta-Llama-3-8B-Instruct_dpo_NaiveCompletion_2024-11-12-17-59-06-resized` (r64 α8, q/v) on `meta-llama/Meta-Llama-3-8B-Instruct` — facebookresearch/SecAlign `setup.py --instruct` |
+| StruQ | full model `huggyllama/llama-7b_SpclSpclSpcl_NaiveCompletion_2025-03-12-01-02-37` (25 GB) — Sizhe-Chen/StruQ `setup.py --model`. No Llama-3-8B StruQ checkpoint is public |
+
+`baselines/download_release_ckpts.sbatch` (CPU job) puts them in `baselines/models/` (git-ignored).
+Pipeline: `agentdojo/src/agentdojo/agent_pipeline/llms/struq_secalign_release_llm.py` (ModelsEnum `SECALIGN_LLAMA3_8B_RELEASED`,
+`STRUQ_LLAMA_7B_RELEASED`). Prompt template, tokenizer source, input filter (`recursive_filter`) and greedy decoding are copied from
+the released test code (facebookresearch/SecAlign @3fc9c9c, `config.py` / `test.py`). **Ours:** these models have no tool-calling
+format, so each agent step is re-built as one (instruction, input) pair — instruction = AgentDojo's `local` tool-calling prompt +
+system message + user request + the calls made so far; input = the tool results (where the injection lives). Calls are parsed with
+the shared `<function=…>` parser. Driver `baselines/run_released_baselines.sh` (same ten shards as every other AgentDojo row).
+
+`baselines/sanity_released.py` (outside AgentDojo): on a plain translate-the-input example with an injected "print Hacked!", the base
+Llama-3-8B-Instruct prints "Hacked!" and the SecAlign adapter translates — the adapter is loaded and works. On an AgentDojo banking
+prompt in the same format the base emits `<function=read_file>{…}</function>`; the SecAlign adapter answers in prose and calls nothing.
+
+| released checkpoint (AgentDojo, `important_instructions`, 97 benign + 949 attacked) | Benign | UA | ASR | trajectories with no tool call |
+|---|---|---|---|---|
+| **SecAlign**, Llama-3-8B-Instruct (FINAL 16:22, 1 h 13) | **7.22** (7/97) | **8.22** (78/949) | **0.00** | 944 / 949 attacked, 96 / 97 benign |
+| **StruQ**, llama-7b | running since 19:30 | | | |
+
+SecAlign per suite (Benign / UA / ASR): banking 25.00 / 25.00 / 0 · slack 0 / 0 / 0 · travel 0 / 0 / 0 · workspace 7.50 / 7.50 / 0.
+Run dir `agentdojo/runs/secalign_llama3_8b_released`, stats
+`eval/attack_stats_secalign_llama3_8b_released_facebookresearch_SecAlign-Meta-Llama-3-8B-Instruct-released.csv`.
+The ASR of 0 is not resistance: the model never reads a tool output because it does not call tools. The number agrees with the
+70B figure in the Meta-SecAlign paper (6.2 / 7.9 / 0.0).
+
+**Undefended reference in the same prompt format — started, then stopped at the user's request (not needed), INCOMPLETE:** base
+Meta-Llama-3-8B-Instruct without the adapter (`runs/llama3_8b_instruct_secalign_format`): benign 16/97 = 16.49 (34 without a call);
+attacked UA / ASR banking 23.61 / 24.31 (144) · slack 7.62 / 11.43 (105) · travel 1.43 / 3.57 (140) · workspace only 24 of 560. It
+shows the base does call tools and is hijacked in this format, but its utility is below our Llama-3.1 base row (27.84) — the
+single-turn (instruction, input) mapping is itself a handicap. Without a complete reference row, do not claim that the collapse is
+caused by the defense rather than by the format; state the checkpoint, the format and the numbers. The authors' undefended llama-7b
+(`…_None_2025-03-12-01-01-20`) was downloaded and not run.
